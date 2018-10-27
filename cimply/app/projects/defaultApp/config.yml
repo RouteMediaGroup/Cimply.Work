@@ -62,19 +62,10 @@ Themes:
 
 DBConnect:    
     PDO:
-        driver:    pdo
-        type:		mysql
-        host:		localhost
-        user:		root
-        pass:      ''
-        name:		beresa
-        options:
-    
-    MYSQLI:
-        driver:		odbc	
+        driver:     pdo
         type:		mysql
         host:		localhost
         user:		root
         pass:       ''
-        name:		beresa
+        name:		defaultdb
         options:
