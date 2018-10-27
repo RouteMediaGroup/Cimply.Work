@@ -1,0 +1,80 @@
+DevMode: true
+Debug: true
+Symlink: true
+SSL: true
+Decrypt:
+    state:  false
+    salt: '42'
+    securecode: false
+
+Crypto:
+    salt: "AES-128-CBC"
+    pepper: "0x42"
+    passphrase: "/\/\A$T3R<>FTHEU/\/iV3R$3"
+
+Local: de_DE
+
+Assembly:
+    projectCtrl:            ".\Cimply\App\Projects\%project%\controller"
+    baseCtrl:               ".\Cimply\App\Base"
+    
+App:
+    baseName:               "Cimply"
+    baseDir:                "/"
+    index:                  "index"
+    project:                "defaultApp"
+    projectPath:            "<?=__DIR__?>"
+    namespace:              "Cimply\App\Projects\%project%\App"
+    database:               "prod"
+    assets:
+        root:				"\Common"
+        stylesheets:        "\css"
+        javascript:         "\js"
+        html:               "\html"
+        markup:				"\markup"
+    commonDir:		        "Common/"
+    cacheDir:               "<?=__DIR__?>\Cache"
+    debugMode:              true
+
+System:
+    useTemplateFor:         [html,css,js,htc]
+    useParseFiles:          []
+    useNotTranslationFor:   [application/json]
+    useNotCachingFor:       [application/json]
+
+Collections:
+    Notification:       "angular-web-notification"
+    Growl:              "growl-notifiaction-master"
+    Diff:               "jsdiff"
+    TextEditor:         "angular-textedit"
+    DragDropList:       "angular-ui-tree"
+    BtGrid:             "btgrid"
+    ImgaReaselect:      "jquery.imgareaselect-0.9.10"
+    Flipbook:           "turnjs4"
+    Datepicker:         "angular-bootstrap-datetimepicker-1.1.4"
+    Daterangepicker:    "angular-daterangepicker"
+    Kendo:              "kendo"
+    DragDrop:           "angular-lvl"
+    
+Themes:
+    Awesome:	"Font-Awesome"
+    Bootstrap:	"Bootstrap"
+
+DBConnect:    
+    PDO:
+        driver:    pdo
+        type:		mysql
+        host:		localhost
+        user:		root
+        pass:      ''
+        name:		beresa
+        options:
+    
+    MYSQLI:
+        driver:		odbc	
+        type:		mysql
+        host:		localhost
+        user:		root
+        pass:       ''
+        name:		beresa
+        options:

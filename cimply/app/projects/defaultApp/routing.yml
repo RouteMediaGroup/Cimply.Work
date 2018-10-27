@@ -1,0 +1,737 @@
+#Region: Allgemeine Routings
+index:
+    type:         'html'
+    params:       '{"Title" : "Chief Smile123"}'
+    action:       'Cimply\App\BaseCtrl::Init'
+    templating:
+        header:id=page-header:
+            tpl: '{->page_~header.html}'
+        main:id=page-content:
+            tpl: '{->page_~content.html}'
+        section:id=partial-areas:
+            tpl: '{->partial_~areas.html}'
+        footer:id=page-footer:
+            tpl: '{->page_~footer.html}'
+    target: '{->base.html}'
+    markup:
+        Control:
+            save:     '{"markup": {"type": "button", "name": "data", "value": "Erstellen", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right ", "ng-click": "SaveData(SaveAngebot, formData);"}}}' 
+            next:     '{"markup": {"type": "button", "name": "data", "value": "Weiter", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right", "ng-click": "next();"}}}'                    
+            back:     '{"markup": {"type": "button", "name": "data", "value": "Zurück", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right", "ng-click": "back();"}}}'         
+    markupFile:       'formfields.xhtml'
+    session:      
+        conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login'
+    theme:        'base'
+    caching:      true
+            
+login:
+    type:          'html'
+    params:       
+        Title:     'Login'
+        Firmename: 'Chief Smile'
+        Jahr:      '<?=date("Y");?>'
+    action:        'AppCtrl'
+    templating:
+        dom:
+            header[id=page-header]:
+                tpl: 'page_login_~header.html'
+            section[id=modal-login]:
+                tpl: 'modal_~login.html'
+            section[id=partial-areas]:
+                tpl: 'partial_~areas.html'
+            section[id=page-content]:
+                tpl: 'page_login_~content.html'
+            footer[id=page-footer]:
+                tpl: 'page_~footer.html'
+    tpls:
+    target:       '{->login.html}'
+    theme:        'base'
+    caching:      false
+    
+dashboard:
+    type:          'html'
+    params:       
+        Title:     'Dashboard'
+        Firmename: 'Chief Smile'
+    action:       'AppCtrl'
+    method:       'Init'
+    templating:
+        dom:
+            section[id=partial-welcome]:
+                tpl: 'partial_~welcome.html'
+            section[id=partial-areas]:
+                tpl: 'partial_~areas.html'
+    tpls:
+        Bereiche:   'bereiche.tpl'
+    target:       '{->app_dashboard.html}'
+    theme:        'base'
+    caching:      false
+
+control-menu:
+    type:         'html'   
+    action:       'collections/ButtonSetCtrl::Buttons'
+    markup:
+        Control:
+            save:     '{"markup": {"type": "button", "name": "data", "value": "Erstellen", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right ", "ng-click": "SaveData(SaveAngebot, formData);"}}}' 
+            next:     '{"markup": {"type": "button", "name": "data", "value": "Weiter", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right", "ng-click": "next();"}}}'                    
+            back:     '{"markup": {"type": "button", "name": "data", "value": "Zurück", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"class":"col-lg-3 col-md-3 col-sm-6 col-xs-6 btn pull-right", "ng-click": "back();"}}}'         
+    markupFile:       'formfields.xhtml'
+    templating:
+        dom:
+    target:       '{->partial_~control.html}'
+    caching:      false
+
+#Region: Mitarbeiterverwaltung
+mitarbeiter:
+    type:          'html'
+    params:       
+        Title:     'MITARBEITERÜBERSICHT'
+    action:       'AppCtrl'
+    method:       'Init'
+    tpls:
+        tabelle:   'mitarbeiter/index.tpl'
+    markup: 
+        search-field:  '{"div": {"field": "search", "type": "multi", "attr": {}}}'
+    markupFile:       'singlefields.xhtml'
+    templating:
+        dom:
+            section[id=partial-profil]:
+                tpl: 'partial_~profil.html'
+    target:       '{->page_mitarbeiter_main.html}'
+    theme:        'base'
+    caching:      false
+
+mitarbeiter_anlegen:
+    type:          'html'
+    params:
+        Title:     'MITARBEITER VERWALTEN'
+        InitCtrl:  'InitMitarbeiter();'
+        tabs:     "[{title: 'MITARBEITER-ANGABEN', content: 'mitarbeiter/anlegen/allgemein.html'}, {title: 'ZUGANGSDATEN', content: 'mitarbeiter/anlegen/zugangsdaten.html'}]"
+    action:       'AppCtrl::Init'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'partial_~tabmenu.html'
+    markup:
+        Control:
+            save:
+                '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "SaveMitarbeiter(formData);"}}}'
+    markupFile:   'formfields.xhtml'
+    target:       '{->modal.html}'
+    theme:        'base'
+    caching:      false  
+
+mitarbeiter_anlegen_allgemein:
+    type:          'html'
+    params:       
+        Title:     'MITARBEITER-ANGABEN'
+    schema:    
+        Login:       'Login'
+        Mitarbeiter: 'Mitarbeiter'
+    action:       'AppCtrl::Init'  
+    target:       '{->view.html}'
+    theme:        'base'
+    tpls:
+        tpl:     'mitarbeiter/tabs/allgemein.tpl'
+    caching:      false
+    
+mitarbeiter_anlegen_zugangsdaten:
+    type:          'html'
+    params:       
+        Title:     'ZUGANGSDATEN'
+    schema:    
+        Login:       'Login'
+        Mitarbeiter: 'Mitarbeiter'
+    action:       'AppCtrl::Init'  
+    target:       '{->view.html}'
+    theme:        'base'
+    tpls:
+        tpl:     'mitarbeiter/tabs/zugangsdaten.tpl'
+    caching:      false
+    
+#EndRegion: Mitarbeiterverwaltung
+
+#Region: Profil
+profil:
+    type:          'html'
+    params:       
+        Title:     'Mitarbeiter'
+        Firmename: 'Chief Smile'
+    action:       'IndexCtrl'
+    method:       'Init'
+    templating:
+        dom:
+            section[id=page-partial as partial-profil]:
+                tpl: 'partial_~profil.html'
+    target:       '{->partial.html}'
+    caching:      false
+#EndRegion: Profil    
+
+#Region: Mitarbeiter Repository´s
+LoadMitarbeiter:
+    type:         'json'
+    action:       'mitarbeiter/MitarbeiterCtrl::Load'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+SaveMitarbeiter:
+    type:         'json'
+    action:       'mitarbeiter/MitarbeiterCtrl::Save'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+#EndRegion: Mitarbeiter Repository´s  
+
+#Region: Textbausteine Repository´s
+LoadBausteine:
+    type:         'json'
+    action:       'textbaustein/LoadCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+SaveBaustein:
+    type:         'json'
+    action:       'textbaustein/SaveCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+SaveBausteinPosition:
+    type:         'json'
+    action:       'textbaustein/SavePositionCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+    
+SaveBausteinStatus:
+    type:         'json'
+    action:       'textbaustein/SaveStatusCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+#EndRegion: Textbausteine Repository´s
+
+#Region: Externe Daten
+assets:
+    action:       'data/FileLoader'
+    validation:
+        file:     '{"type":"string", "required":true, "min":1, "max":32, "trim":true}'
+        size:     '{"type":"string", "required":true, "min":1, "max":32, "trim":true}'
+        crop:     '{"type":"string", "required":true, "min":1, "max":32, "trim":true}'
+    target:       '~'
+    caching:      false
+
+404:
+    type:         'html'
+    target:       '{->~404.html}'
+#EndRegion: Externe Daten
+
+#Region: Angebot Repository´s
+LoadAngebote:
+    type:         'json'
+    action:       'angebot/AngebotObjectCtrl'
+    target:       '~'
+    session:      
+        conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'none.json'
+    caching:       false
+
+LoadAngebot:
+    type:         'json'
+    action:       'angebot/InhaltCtrl::Init'
+    target:       '~'
+    validation:
+        AngebotId:     '{"type":"int", "required":true, "min":1, "max":3200000, "trim":true}'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+    
+SaveAngebotStatus:
+    type:         'json'
+    action:       'angebot/SaveStatusCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+SaveAngebot:
+    type:         'json'
+    action:       'angebot/SaveCtrl'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+Angebote:
+    type:         'json'
+    action:       'angebot/AngebotObjectCtrl'
+    target:       '~'
+    session:      
+        conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'none.json'
+    caching:       false
+    
+#EndRegion: Angeots Repository´s  
+
+#Region: Inhalt-/Inhaltsverzeichnis Repository´s
+SaveInhalt:
+    type:         'json'
+    action:       'angebot/SaveInhaltCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+LoadInhaltsverzeichnis:
+    type:         'json'
+    action:       'inhaltsverzeichnis/LoadCtrl::Init'
+    target:       '~'
+    validation:
+        AngebotId:     '{"type":"int", "required":true, "min":1, "max":3200000, "trim":true}'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+
+SaveInhaltsverzeichnis:
+    type:         'json'
+    action:       'inhaltsverzeichnis/SavePositionCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+    
+inhaltsverzeichnis:
+    type:         'html'
+    action:       'AppCtrl::Init'
+    markup:
+        templates:
+            nodes-sub: '{"script": {"field": "template-baustein-sub", "type": "multi", "attr": {"type":"text/ng-template", "id":"nodes_sub.html"}}}'
+            nodes-main: '{"script": {"field": "template-baustein-main", "type": "multi", "attr": {"type":"text/ng-template", "id":"nodes_main.html"}}}'
+    markupFile:   'bausteine.xhtml'
+    target:       '{->modal_inhaltsverzeichnis_~list.html}'
+    tpls:         ''
+    theme:        'base'
+    caching:      false
+
+nodes-inhaltsverzeichnis-main:
+    type:       'html'
+    tpls:
+    theme:      'base'
+    target:     '{->modal_inhaltsverzeichnis_templates_~nodes-main.html}'
+    caching:    false
+    
+nodes-inhaltsverzeichnis-sub:
+    type:       'html'
+    tpls:
+    theme:      'base'
+    target:     '{->modal_inhaltsverzeichnis_templates_~nodes-sub.html}'
+    caching:    false
+
+SaveInhaltStatus:
+    type:         'json'
+    action:       'inhaltsverzeichnis/SaveStatusCtrl::Init'
+    target:       '~'
+    session:      
+        #conditions:    '{"UserId": false}'
+        redirect:
+            fallback:  'login.json'
+    caching:       false
+#EndRegion: Inhaltsverzeichnis Repository´s
+
+#Region: Repository Fachbereich
+Fachbereich:
+    type:         'json'
+    namespace:    'Cimply_Cim_Core'
+    controller:   'Cim_ViewPresenter'
+    method:       'ExternalApi'
+    validation:
+        bereich:  '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    databinding:
+        params:   '{"Table":"KatalogEintrag", "SelectBy":"ReferenzId = 1 AND Name = ´[+bereich+]´", "Refresh":"false", "Execute":"true", "Data":"data"}'
+        callback:  'localstorage'
+    target:       '~'
+    caching:       false
+    
+Fachbereiche:
+    type:         'json'
+    namespace:    'Cimply_Cim_Core'
+    controller:   'Cim_ViewPresenter'
+    method:       'ExternalApi'
+    databinding:
+        params:   '{"Table":"KatalogEintrag", "SelectBy":"ReferenzId=>1", "Refresh":"false", "Execute":"true", "Data":"data"}'
+        callback:  'localstorage'
+    target:       '~'
+    caching:       false
+#EndRegion: Repository Fachbereich 
+
+#Region: Katalog Repository
+KatalogEintrag:
+    type:         'json'
+    action:       'KatalogCtrl'
+    validation:
+        katalog:  '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    target:       '~'
+    caching:      false
+
+KatalogEintraege:
+    type:         'json'
+    namespace:    'Cimply_Cim_Core'
+    controller:   'Cim_ViewPresenter'
+    method:       'ExternalApi'
+    databinding:
+        params:   '{"Table":"KatalogEintrag", "Refresh":"false", "OrderBy":"Katalog", "Execute":"true", "Data":"data"}'
+        callback:  'localstorage'
+    target:       '~'
+    caching:       false
+#EndRegion: Katalog Repository
+
+#Region: Allgemein    
+MetaInformation:
+    type:         'json'
+    action:       'MetaData'
+    validation:
+        Scheme:   '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    method:       '__construct'
+    databinding:
+        name:     'MetaInformation'
+        filetype: 'js'
+        callback:  'yaml'
+    target:       '~'
+    
+LoadBenutzer:
+    type:         'json'
+    action:       'LoginCtrl::__construct'
+    validation:
+        Username:     '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+        Password:     '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    target:       '~'  
+    caching:      false
+
+FileUploader:
+    action:       'data/FileUploader::Init'   
+    target:       '~'
+    caching:      false
+
+MultipleFileUploader:
+    action:       'Cimply_Cim_Core::Cim_Core_Invoke_FileManager::MultipleFileUploader'      
+    target:       '~'
+    caching:      false
+
+PushService:
+    type:         'json'
+    action:       'PushMessageCtrl' 
+    method:       '__construct'
+    target:       '~'
+    caching:      false
+    
+SendMail:
+    type:         'json'
+    controller:   'MailCtrl'
+    target:       '~'
+    caching:      false   
+    
+CsvExport:
+    type:         'csv'
+    action:       'CsvController'
+    templating:
+        dom:
+    params:
+        PageTitle:  'Export'
+        Color:      'red'
+        Schema:     'Kunden'
+    validation:
+        Schema:     '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    target:       '~'
+    caching:       false
+
+PreviewThumb:
+    type:         'png'
+    action:       'data/TextImageCtrl::Init'
+    validation:
+        page:     '{"type":"string", "required":true, "min":1, "max":3, "trim":true}'
+    target:       '~'
+    caching:      false
+            
+nope:
+    type:   'json'
+    params: '{"output":"[]"}'
+    target: '~'
+
+Search:
+    type:         'json'
+    namespace:    'Cimply_Cim_Core'
+    controller:   'Cim_ViewPresenter'
+    method:       'ExternalApi'
+    params:
+        Search:   'String'
+    validation:
+        Search:     '{"type":"string", "required":true, "min":1, "max":255, "trim":true}'
+    databinding:
+        params:   '{"Table":"KatalogEintrag", "SelectBy":"ReferenzId = 1 AND Name LIKE ´[+Search+]%´", "Refresh":"false", "Execute":"true", "Data":"data"}'
+        callback:  'localstorage'
+    target:       '~'
+    caching:       false
+
+#Region: Save
+SaveKatalog:
+    namespace:    'Cimply_Cim_App'
+    controller:   'save/SaveKatalog'
+    method:       '__construct'      
+    target:       '~'
+    caching:      'overwrite'
+    
+SaveDragObject:
+    namespace:    'Cimply_Cim_App'
+    action:       'save/SaveDragObject::Init'      
+    target:       '~'
+    caching:      'overwrite'
+        
+#Region: Editor-Funktionen
+modal_bausteine_anlegen:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'ABSCHNITT HINZUFÜGEN'
+        NavIcon:    'fa fa-pencil'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_bausteine_~edit-baustein.html'
+                ng-init: 'InitBausteine();'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save: '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "SaveBaustein();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+    
+modal_bausteine_bearbeiten:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'ABSCHNITT BEARBEITEN'
+        NavIcon:    'fa fa-pencil'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_bausteine_~edit-baustein.html'
+                ng-init: 'LoadContent();'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save: '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "SaveBaustein();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+    
+modal_bausteine_select:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'BAUSTEIN VERWALTEN'
+        NavIcon:    'nav-icon-edit'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_~select-baustein.html'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save: '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "SelectBaustein();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+
+modal_inhalt_bearbeiten:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'ABSCHNITT BEARBEITEN'
+        NavIcon:    'fa fa-pencil'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_angebot_~edit-inhalt.html'
+                ng-init: 'LoadContent();'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save: '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "SaveInhalt();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+    
+modal_inhaltsverzeichnis_bearbeiten:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'Inhaltsverzeichnis anpassen'
+        NavIcon:    'nav-icon-edit'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_inhaltsverzeichnis_~main.html'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            #trash: '{"span": {"field": "button-default", "type": "multi", "name": "Papierkorb", "value": "PAPIERKORB", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Trash", "class":"fleft", "ng-click": "RemoveElement();"}}}'
+            #baustein: '{"span": {"field": "button-default", "type": "multi", "name": "AddBaustein", "value": "NEUER BAUSTEIN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Add", "class":"fleft", "ng-controller":"BausteinCtrl", "ng-click": "NewBaustein();"}}}' 
+            create: '{"span": {"field": "button-default", "type": "multi", "name": "Erstellen", "value": "AKTUALISIEREN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Save", "class":"fright", "ng-click": "SaveIndex();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+    
+modal_pdf_print:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'DOKUMENTEN ANSICHT'
+        NavIcon:    'fa fa-file-pdf-o'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_pdf_print_index.html'
+                ng-init: 'LoadContent();'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save: '{"span": {"field": "button-default", "type": "multi", "name": "Speichern", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Speichern", "class":"fright", "ng-click": "savePdf();"}}}' 
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+    
+modal_picture_add:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'BILD HINZUFÜGEN'
+        NavIcon:    'fa fa-plus'
+        ModalTpl:   "'modal/image/upload.html'"
+        ModalCtrl:  "'ModalCtrl'"
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_~add-picture.html'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control: 
+            upload: '{"span": {"field": "button-default", "type": "multi", "name": "Bild", "value": "BILD HOCHLADEN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"FileUplaod", "class":"fright", "ng-click": "OpenModal([+ModalTpl+], [+ModalCtrl+]);"}}}'
+    markupFile:   'formfields.xhtml'
+    theme:        'base'
+    caching:      false
+
+modal_picture_edit:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        Title:      'Bild ändern'
+        ModalTpl:   "'image-upload.html'"
+        ModalCtrl:  "'ModalCtrl'"
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_~add-picture.html'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            save:
+                '{"span": {"field": "button-upload", "type": "multi", "name": "Speichern", "value": "BILD HOCHLADEN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"Upload", "class":"fright", "ng-click": "OpenModal([+ModalTpl+], [+ModalCtrl+]);"}}}'
+    markupFile:       'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+
+modal_image_upload:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        NavIcon:   'fa fa-upload'
+        Title:     'BILD HOCHLADEN'
+        LabelText: 'Klicken Sie auf das Bild, um einen optimalen Bildausschnitt auszuwählen.'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_~image-upload.html'
+        
+    target:       '{->modal.html}'
+    markup:
+        Control:
+            reset: '{"span": {"field": "button-default", "type": "multi", "name": "Reset", "value": "NEU", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"type":"cancel", "class":"fleft", "ng-click":"picFile = null", "ng-show":"picFile"}}}'
+            save:  '{"span": {"field": "button-default", "type": "multi", "name": "Save", "value": "SPEICHERN", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"upload", "class":"fright", "ng-click": "ImageUploader();"}}}'
+    markupFile:   'formfields.xhtml'
+    theme:        'webs'
+    caching:      false
+
+modal_image_edit:
+    type:          'html'
+    action:        'AppCtrl::Init'
+    params:
+        NavIcon:  'fa fa-cut'
+        Title:    'BILDAUSSCHNITT WÄHLEN'
+        LabelText: 'Klicken Sie auf das Bild, um einen optimalen Bildausschnitt auszuwählen.'
+    templating:
+        dom:
+            section[id=modal-body]:
+                tpl: 'modal_~image-crop.html'
+        
+    markup:
+        Control:
+            save:
+                '{"span": {"field": "button-default", "type": "multi", "name": "Save", "value": "Bild speichern", "class": " btn btn-primary btn-round-lg btn-lg", "attr": {"value":"upload", "class":"fright", "ng-click": "EditImage(data);"}}}' 
+    markupFile:       'formfields.xhtml'
+    target:       '{->modal.html}'
+    theme:        'webs'
+    caching:      false
+
+get-gallery:
+    type:       'json'
+    action:     'load/GalleryCtrl::Init'
+    
+    target:     '~'
+    caching:    false
+
+#EndRegion: Editor-Funktionen
