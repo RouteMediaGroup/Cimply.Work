@@ -43,18 +43,6 @@ System:
     useNotCachingFor:       [application/json]
 
 Collections:
-    Notification:       "angular-web-notification"
-    Growl:              "growl-notifiaction-master"
-    Diff:               "jsdiff"
-    TextEditor:         "angular-textedit"
-    DragDropList:       "angular-ui-tree"
-    BtGrid:             "btgrid"
-    ImgaReaselect:      "jquery.imgareaselect-0.9.10"
-    Flipbook:           "turnjs4"
-    Datepicker:         "angular-bootstrap-datetimepicker-1.1.4"
-    Daterangepicker:    "angular-daterangepicker"
-    Kendo:              "kendo"
-    DragDrop:           "angular-lvl"
     
 Themes:
     Awesome:	"Font-Awesome"
