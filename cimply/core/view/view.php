@@ -1,11 +1,4 @@
 <?php
-
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 namespace Cimply\Core\View {
 
     /**
@@ -52,15 +45,18 @@ namespace Cimply\Core\View {
             $path = [];
             if ($modul = self::GetModules($tpl)) {
                 foreach ($modul as $key => $value) {
-                    $path = is_string($key) ? ['file' => $key, 'attr' => $value] : ['file' => $value];
+                    $path = \is_string($key) ? ['file' => $key, 'attr' => $value] : ['file' => $value];
                 }
                 $fileInfo = new UriManager($path['file']);
                 $extension = $fileInfo->getFileType();
-                $basename = str_replace('_', '\\', $fileInfo->getFileBasename());
-                $result = self::GetStaticProperty(AppSettings::PROJECTPATH) . '\\' . $extension . '\\' . $basename;
+                $basename = \str_replace('_', DIRECTORY_SEPARATOR, $fileInfo->getFileBasename());
+                $baseFile = self::GetStaticProperty(AppSettings::ASSETS) . DIRECTORY_SEPARATOR . $extension . DIRECTORY_SEPARATOR . $basename;
+                $result = \is_file($baseFile) && (self::GetStaticProperty(AppSettings::CLIENTFILESALLOW) == true) 
+                ? $baseFile
+                : self::GetStaticProperty(AppSettings::PROJECTPATH) . DIRECTORY_SEPARATOR . $baseFile;
                 self::$externalFile = false;
             }
-            return array_merge(['filePath' => $result], $path);
+            return \array_merge(['filePath' => $result], $path);
         }
 
         //Set Parameters
@@ -81,7 +77,7 @@ namespace Cimply\Core\View {
         //Get Parameter
         static function GetVar($s, $key = '')
         {
-            return static::$vars[$key . $s];
+            return static::$vars[$key . $s] ?? null;
         }
 
         //Set Value
@@ -127,7 +123,7 @@ namespace Cimply\Core\View {
             $filePath = $tplArgs['filePath'];
             if (is_file($filePath)) {
                 self::$mimeType = \Mime::GetMime($tplArgs['file']);
-                $cacheFile = self::GetStaticProperty(AppSettings::CACHEDIR)  . '\\tmp_' . md5($filePath);
+                $cacheFile = self::GetStaticProperty(AppSettings::CACHEDIR) . DIRECTORY_SEPARATOR . 'tmp_' . md5($filePath);
                 $iFiletime = self::HasFileCached($cacheFile) ? \filemtime($cacheFile) : 0;
                 $template = ($iFiletime > (\time() - (10 * self::$ttl))) ? self::GetFileContent($cacheFile) : self::$staticProperties->cacheFile($filePath, $cacheFile);
                 isset($tplArgs['attr']) ? $template = Dom::SetAttrFromArray($template, $tplArgs['attr']) : null;
@@ -160,27 +156,24 @@ namespace Cimply\Core\View {
             return \JsonDeEncoder::Encode($template);
         }
 
-        static function Show($body = "", $loopThrough = false, $service = null, $mime = null) : string
+        static function Show($body = "", $loopThrough = false, $secure = null, $mime = null) : string
         {
-    
             $scope = Scope::Cast(self::GetStaticProperty('scope'));
-            $salt = self::GetStaticProperty(CryptoSettings::SALT);
-            $pepper = md5(time().self::GetStaticProperty(CryptoSettings::PEPPER));
-            $headerKey = self::GetStaticProperty(CryptoSettings::PEPPER);
-
             $fileType = $scope->getType();
             $mimeType = \Mime::GetMime('.' . $fileType, true) ?? self::$mimeType;
-
             $caching = !$scope->getCaching() ? $scope->getCaching() : !\in_array($fileType, self::GetStaticProperty(SystemSettings::USENOTCACHINGFOR));
 
             $toTranslation = self::GetStaticProperty(SystemSettings::USENOTTRANSLATIONFOR);
-            !(in_array($scope->getType(), $toTranslation)) || (empty($toTranslation)) ? $body = Translate::GetTranslastion($body) : null;
-            if (isset($service)) {
-                $encoded = \Crypto::Encrypt($body, $salt, $pepper);
-                $service === 1 ? (Helper::Callback(["Scope" => $scope, "fileTyp" => $fileType, "mimeTyp" => $mimeType, 'hash' => $pepper, "caching" => $caching, "data" => $encoded], 'localStorage')) .'; ' : null;
-            }
+            !((isset($toTranslation)) && in_array($scope->getType(), $toTranslation)) || (empty($toTranslation)) ? $body = Translate::GetTranslastion($body) : null;
+            $body = View::ParseTplVars($body);
+            ($secure === 1 || $secure === true) ? $body = (function($body) use($scope, $fileType, $mimeType, $caching) {
+                $salt = self::GetStaticProperty(CryptoSettings::SALT);
+                $pepper = md5(time().self::GetStaticProperty(CryptoSettings::PEPPER));
+                return \JsonDeEncoder::Encode(["Scope" => $scope, "fileTyp" => $fileType, "mimeTyp" => $mimeType, 'hash' => $pepper, "caching" => $caching, "data" => (\Crypto::Encrypt($body, $salt, $pepper))]);
+            })($body) : null;
+ 
             $mime ? header("Content-Type: {$mime}") : $mime;
-            $output = View::ParseTplVars($body);
+            $output = $body;
             if (!($loopThrough)) {
                 die($output);
             }
@@ -189,11 +182,13 @@ namespace Cimply\Core\View {
 
         public static function ParseTplVars($template = null, $vars = null) : ?string
         {
-            preg_match_all(self::GetStaticProperty(PatternSettings::PARAM), $template, $matches);
-            if (isset($matches[1]) && count($matches[1]) > 0) {
-                foreach ($matches[1] as $key => $value) {
-                    if (array_key_exists($value, (is_array($vars) ? $vars : self::$vars) ?? self::$vars)) {
-                        $template = str_replace($matches[0][$key], Translate::WordTranslation($vars[$value] ?? self::$vars[$value]) ?? null, $template);
+            if($template !== null) {
+                @preg_match_all(self::GetStaticProperty(PatternSettings::PARAM), $template, $matches);
+                if (isset($matches[1]) && count($matches[1]) > 0) {
+                    foreach ($matches[1] as $key => $value) {
+                        if (array_key_exists($value, (is_array($vars) ? $vars : self::$vars) ?? self::$vars)) {
+                            $template = str_replace($matches[0][$key], Translate::WordTranslation($vars[$value] ?? self::$vars[$value]) ?? null, $template);
+                        }
                     }
                 }
             }
@@ -202,11 +197,13 @@ namespace Cimply\Core\View {
 
         public static function ParseTplView($template = null) : string
         {
-            preg_match_all(self::GetStaticProperty(PatternSettings::MODUL), $template, $matches);
-            if (isset($matches[1]) && count($matches[1]) > 0) {
-                $explAttr = explode(':', $matches[1][0]);
-                foreach ($matches[1] as $key => $value) {
-                    $template = str_replace($matches[0][$key], self::Create($matches[0][$key]) ?? null, $template);
+            if($template !== null) {
+                @preg_match_all(self::GetStaticProperty(PatternSettings::MODUL), $template, $matches);
+                if (isset($matches[1]) && count($matches[1]) > 0) {
+                    //$explAttr = explode(':', $matches[1][0]);
+                    foreach ($matches[1] as $key => $value) {
+                        $template = str_replace($matches[0][$key], self::Create($matches[0][$key]) ?? null, $template);
+                    }
                 }
             }
             return $template;
@@ -215,14 +212,16 @@ namespace Cimply\Core\View {
         public static function ParseTplAttr($element = null) : ? array
         {
             $result = null;
-            preg_match_all(self::GetStaticProperty(PatternSettings::ATTR), $element, $matches);
-            $result = $matches[0];
-            if (($matches['name'][0] !== '') && count($matches[1]) > 0) {
-                $explAttr = explode(',', $matches['value'][0]);
-                $remove = array("\"", "'");
-                foreach ($explAttr as $key => $value) {
-                    $v = explode('=', \ltrim($value));
-                    $result[$matches['name'][0]][$v[0]] = str_replace($remove, '', $v[1]);
+            if($element !== null) {
+                @preg_match_all(self::GetStaticProperty(PatternSettings::ATTR), $element, $matches);
+                $result = $matches[0];
+                if (($matches['name'][0] !== '') && count($matches[1]) > 0) {
+                    $explAttr = explode(',', $matches['value'][0]);
+                    $remove = array("\"", "'");
+                    foreach ($explAttr as $key => $value) {
+                        $v = explode('=', \ltrim($value));
+                        $result[$matches['name'][0]][$v[0]] = str_replace($remove, '', $v[1]);
+                    }
                 }
             }
             return $result;
