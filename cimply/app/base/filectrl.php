@@ -59,15 +59,18 @@ namespace Cimply\App\Base {
             if($this->Prologue()) {
                 if($this->CalculateStorable()) {
                     $systemSettings = Support::Cast($this->services->getService())->getSystemSettings();
-                    $currentObject = Scope::Cast(View::Cast($this->services->getService()));
+                    $scope = Scope::Cast(View::Cast($this->services->getService()));
+                   
+                    $validator = Validator::Cast($this->services->getService());
                     $template = Gui::Cast($this->services->getService())->set($systemSettings, true);
-                    $valid = Validator::Cast($currentObject)->addRules([
+                    $valid = $validator->addRules([
                         'size' => ['type'=>'string', 'required'=>true, 'min'=>1, 'max'=>9, 'trim'=>true],
                         'crop' => ['type'=>'string', 'required'=>true, 'min'=>1, 'max'=>9, 'trim'=>true]]
-                    )->addSource($currentObject->get('params'));
-                    
-                    $this->fileParams = $valid->run()->sanitized;
-                    $this->fileData = $template->preparing(View::Create($currentObject->getTarget()));
+                    );
+                    $this->fileParams = (function(Validator $valid) use($scope) {
+                        return ($valid)->addSource($scope->get('params'))->sanitized;
+                    })($valid);
+                    $this->fileData = $template->preparing(View::Create($scope->getTarget()));
                 }
                 $this->Epilogue();
             }
