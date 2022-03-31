@@ -7,7 +7,7 @@ namespace Cimply\Core\Routing
 	 *
 	 * Router description.
 	 *
-	 * @version 1.0
+	 * @version 1.0.1
 	 * @author MikeCorner
 	 */
     use \Cimply\System\System;
@@ -75,13 +75,13 @@ namespace Cimply\Core\Routing
                     $query[$this->getBaseFile()] ??
                     $query[$this->getFilename()] ??
                     $query[$this->getFile()] ??
-                    $query[$this->action] ?? (($this->external = true) ? $this->external ? [
+                    $query[$this->action] ?? (($this->external = true) ? ($this->external ? [
                         'type' => $this->fileType,
                         'params' => $this->routeParams,
                         'action' => '\Cimply\App\Base\FileCtrl::Init',
                         'target' => '{->'.$this->get('baseFile').'}',
                         'caching' => 'false'
-                    ] : null : null)
+                    ] : null) : null)
                 , $params);
             })($params);
         }
@@ -92,7 +92,8 @@ namespace Cimply\Core\Routing
          * @return void
          */
         private function setRouteParams(): void {
-            $arrayResult = explode('/', $this->path);
+            $explPath = explode('/', $this->path);
+            $arrayResult = explode('_', ((count($explPath) %2) ? '_' : '').end($explPath));
             $this->routeParams = $this->parseParams($arrayResult);
         }
 
@@ -193,6 +194,5 @@ namespace Cimply\Core\Routing
         function isExternal(): bool {
             return (bool)$this->external;
         }
-
-	}
+    }
 }
