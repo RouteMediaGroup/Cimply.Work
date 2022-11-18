@@ -51,32 +51,33 @@ namespace Cimply\Core\View {
             $checkString = self::GetStaticProperty('Translations')[$value] ?? null;
             return $checkString[$langCode] ?? $value;
         }
-
-        static function Translation($value, $trans = null) : String {
+        
+        static function Translation($value, $trans = null): string {
             !(isset($trans)) ? $trans = self::GetStaticProperty('Translastions') : null;
-            $translation = (array)self::GetTranslastion($value);
-            count($translation) === 0 ? $translation = $value : null;
-            
-            $trimSting = explode(" ", $translation);
-            $counts = strlen($trimSting[0]);
+            $translation = self::GetTranslastion($value);
+            //die(\var_dump(self::GetTranslastion($value)));
+            //count($translation) === 0 ? $translation = $value : null;
+            $explString = \explode(" ", $translation);
+            $counts = strlen(end($explString));
+            //die(\var_dump($explString[2]));
             $replacesWord = [];
-            foreach($checkString = $trans as $key => $val) {
-                if(substr($key, 0, $counts) === $trimSting[0]) {
+            foreach($checkString = end($trans) as $key => $val) {
+                if(substr($key, 0, $counts) === $explString[0]) {
                     if(similar_text($key, $translation, $percent)) {
                         if($percent >= 50) {
                             $trimResult = explode(" ", $key);
                             foreach ($trimResult as $k => $v) {
-                                if(isset($trimSting[$k]) && ($v != $trimSting[$k])) {
+                                if(isset($explString[$k]) && ($v != $explString[$k])) {
                                     $i = str_replace('%', '', $v);
-                                    $replacesWord[$i] = self::WordTranslation($trimSting[$k]);
+                                    $replacesWord[$i] = self::WordTranslation($explString[$k]);
                                 }
                             }
-                            $translation = vsprintf($val, $replacesWord);
+                            $translation = \vsprintf(end($val), $replacesWord);
                         }
                     }
                 }
             }
-            return $translation;
+            return ($translation);
         }
     }
 }
