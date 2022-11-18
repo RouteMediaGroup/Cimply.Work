@@ -1,17 +1,11 @@
 <?php
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 namespace Cimply\Core\View {
 
     /**
-     * Description of CIM
+     * Description of Cimply.Work
      *
-     * @author MikeCorner
+     * @author Michael Eckebrecht
      */
     use \Cimply\System\Helpers as Helper;
     class Translate
@@ -34,8 +28,8 @@ namespace Cimply\Core\View {
         //Get Translation
         static function GetTranslastion(string $s = "", $langCode = 'de_DE') {
             $matches = [];
-            preg_match_all(self::$pattern['Trans'], $s, $matches);
-            if(($matches[1])) {
+            @preg_match_all(self::$pattern['Trans'], $s, $matches);
+            if(isset($matches[1])) {
                 $i = 0;
                 foreach($matches[1] as $key => $value) {
                     if($trans = self::WordTranslation($matches[1][$i], $langCode)) {
@@ -48,10 +42,11 @@ namespace Cimply\Core\View {
         }
 
         static function WordTranslation($value, $langCode = 'de_DE') {
-            $checkString = self::GetStaticProperty('Translations')[$value] ?? null;
+            $translation = (array)self::GetStaticProperty('Translations');
+            $checkString = $translation[$value] ?? $translation;
             return $checkString[$langCode] ?? $value;
         }
-        
+
         static function Translation($value, $trans = null): string {
             !(isset($trans)) ? $trans = self::GetStaticProperty('Translastions') : null;
             $translation = self::GetTranslastion($value);
