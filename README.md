@@ -7,4 +7,4 @@ or download Cimply.Work Repository https://github.com/RouteMediaGroup/Cimply.Wor
 
 Use Cimply.Work Quick-Installer from our Website.
 
-For the use of Cimply.Work you need a server that supports at least PHP 7.1 <= 8.1. / PHP CLI-CGI
+For the using Cimply.Work you need a server that supports PHP 7.1 > or <= 8.1. / PHP CLI-CGI
