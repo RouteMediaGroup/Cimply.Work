@@ -18,5 +18,19 @@ namespace {
             }
             return false;
         }
+        
+        public static function SetSession($value = null, $session = null) {
+            session_start();
+            isset($value) ? $_SESSION[$value] = $session : null;
+        }
+
+        public static function GetSession($value = null) {
+            return isset($value) ? $_SESSION[$value] : [];
+        }
+
+        public static function CloseSession($value = null) {
+            session_destroy();
+        }
+
     }
 }
