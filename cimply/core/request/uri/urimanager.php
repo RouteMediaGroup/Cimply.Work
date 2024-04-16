@@ -4,14 +4,15 @@ namespace Cimply\Core\Request\Uri {
     class UriManager {
         private static $actionPath, $baseUrl;
         protected static $filePath, $fileName, $fileBasename, $fileType, $fileNameUrl, $currentFile;
-
-        public function __construct($FilePath = null, $defaultIndex = 'index')
+        private $basePath = '/';
+        
+        public function __construct($FilePath = null, $defaultIndex = 'index', $basePath = null)
         {
-            $value = isset($FilePath) ? '/'.$FilePath : $_SERVER['REQUEST_URI'] ?? self::$actionPath;
-            $explodePath = explode('?', $value);
-            isset($explodePath[1]) ? $value = $explodePath[0] : null;
-            $value !== '/' ? : $value.= $defaultIndex;
-            self::$filePath = $value;
+            self::$baseUrl = isset($FilePath) ? '/'.$FilePath : ((!($_SERVER['REQUEST_URI'])) ? $_SERVER['HTTP_X_ORIGINAL_URL'] : $_SERVER['REQUEST_URI']) ?? self::$actionPath;
+            $explodePath = explode('?', self::$baseUrl);
+            isset($explodePath[1]) ? self::$baseUrl = $explodePath[0] : null;
+            self::$baseUrl !== '/' ? : self::$baseUrl.= $defaultIndex;
+            self::$filePath = self::$baseUrl;
             $this->setCurrentFile();
             $this->setBaseUrl();
         }
@@ -27,12 +28,13 @@ namespace Cimply\Core\Request\Uri {
         public function getFilePath(): ?string {
             return substr(self::$filePath, 1);
         }
-        public function getRoutingPath($setBaseUrl = null): ?string {
-            $actionPath = explode('/', $this->getFilePath());
-            self::ActionPath(implode('_', $actionPath));
-            (bool)$setBaseUrl === true ? : \array_splice($actionPath, 0, 1);
-            self::$filePath = implode('/', $actionPath);
-            return str_replace('/','_', self::$filePath);
+        public function getRoutingPath(): ?string {
+            $subPath = \explode($this->basePath, (string)$this->getFilePath());
+            $actionPath = \explode('/', end($subPath));
+            self::ActionPath(\implode('_', $actionPath));
+            (bool)$this->basePath === true ? : \array_splice($actionPath, 0, 1);
+            self::$filePath = \implode('/', $actionPath);
+            return \str_replace('/','_', self::$filePath);
         }
         public function getFileName(): ?string {
             return self::$fileName;
@@ -43,11 +45,10 @@ namespace Cimply\Core\Request\Uri {
         public function setBaseUrl(): void {
             $newUri = self::$filePath ?? 'index';
             $hostIP = getHostByName(getHostName());
-            $url  = (isset($_SERVER["HTTPS"]) ? 'https://' : 'http://').$hostIP.'/';
-            $url .= (isset($_SERVER["SERVER_PORT"]) && ($_SERVER["SERVER_PORT"] !== 80)) ? ":" . $_SERVER["SERVER_PORT"] : "";
-            $url .= isset($newUri) ? $newUri : str_replace('//', '/', $_SERVER["REQUEST_URI"]);
+            $url  = (isset($_SERVER["HTTPS"]) ? 'https://' : 'http://').$hostIP;
+            $url .= (isset($_SERVER["SERVER_PORT"]) && ($_SERVER["SERVER_PORT"] !== 80)) ? ":" . $_SERVER["SERVER_PORT"] : "/";
+            $url .= isset($newUri) ? $newUri : str_replace('//', '/', self::$baseUrl);
             $baseUrl = \pathinfo($url);
-
             self::$fileNameUrl = $baseUrl['dirname'] ?? null;
             self::$fileBasename = $baseUrl['basename'] ?? null;
             self::$fileName = $baseUrl['filename'] ?? null;
@@ -55,10 +56,10 @@ namespace Cimply\Core\Request\Uri {
         }
         private function setCurrentFile():void {
             $filePath = \pathinfo(self::$filePath);
-            $urlToArray = explode('/', substr($filePath['dirname'], 1));
+            $urlToArray = explode('/', substr(($filePath['dirname'] ?? '/'), 1));
             self::$currentFile = $urlToArray[0];
         }
-        function currentFile() {
+        public function currentFile() {
             return self::$currentFile;
         }
         public static function ActionPath($actionPath = null) {
