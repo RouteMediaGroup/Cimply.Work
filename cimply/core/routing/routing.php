@@ -1,198 +1,232 @@
 <?php
+/*
+ * Cimply.Work - Business Framework 2012-2025: Proprietary commercial license © RouteMedia® – Represented by Michael Eckebrecht. 
+ * Contact: direkt@route-media.info. All rights reserved.
+*/
 
-namespace Cimply\Core\Routing
+declare(strict_types=1);
+
+namespace Cimply\Core\Routing;
+
+use Cimply\Core\Core;
+use Cimply\Core\Request\Uri\UriManager;
+use Cimply\Core\View\View;
+use Cimply\Interfaces\ICast;
+use Cimply\System\System;
+
+class Routing implements ICast
 {
-	/**
-	 * Router short summary.
-	 *
-	 * Router description.
-	 *
-	 * @version 1.0.1
-	 * @author MikeCorner
-	 */
-    use \Cimply\System\System;
-    use \Cimply\Core\{Core, View\View, Request\Uri\UriManager};
-    use \Cimply\Interfaces\ICast;
-	class Routing implements ICast
-	{
-        use \Properties, \Cast;
+    use \Properties, \Cast;
 
-        protected $scope, $route, $lastRoute = '/', $nextRoute = null;
-        private $file, $fileName, $baseFile, $fileType, $path, $action, $routeParams = null, $external = false;
-        function __construct($query = []) {
-            $this->setRoute(new UriManager())->setScope($query);
+    protected mixed $scope = null;
+    protected ?string $route = null;
+    protected string $lastRoute = '/';
+    protected ?string $nextRoute = null;
+
+    private ?string $file = null;
+    private ?string $fileName = null;
+    private ?string $baseFile = null;
+    private ?string $fileType = null;
+    private ?string $path = null;
+    private ?string $action = null;
+
+    /** @var array<string, mixed>|null */
+    private ?array $routeParams = null;
+
+    private bool $external = false;
+
+    public function __construct(array $query = [])
+    {
+        $this->setRoute(new UriManager())->setScope($query);
+    }
+
+    public static function Cast($mainObject, $selfObject = self::class): self
+    {
+        /** @var self */
+        return Core::Cast($mainObject, $selfObject);
+    }
+
+    /**
+     * Set route with fallback to lastRoute
+     */
+    protected function setRoute(UriManager $route): self
+    {
+        $this->path     = $route->getFilePath();
+        $this->file     = $route->currentFile();
+        $this->fileName = $route->getFileName();
+        $this->baseFile = $route->getFileBasename();
+        $this->fileType = $route->getFileType();
+
+        if (isset($this->route)) {
+            // keep original behavior (even if string): snapshot of previous value
+            $this->lastRoute = (string)$this->route;
         }
 
-        public final static function Cast($mainObject, $selfObject = self::class): self {
-            return Core::Cast($mainObject, $selfObject);
-        }
+        $this->route = $route->getFileNameUrl() ?? $this->lastRoute;
 
-        /**
-         * Set route with fallback to lastRoute
-         * @param UriManager $route
-         * @return Routing
-         */
-        protected function setRoute(UriManager $route): Routing {
-            $this->path = $route->getFilePath();
-            $this->file = $route->currentFile();
-            $this->fileName = $route->getFileName();
-            $this->baseFile = $route->getFileBasename();
-            $this->fileType = $route->getFileType();
-            isset($this->route) ? $this->lastRoute = clone($this->route) : null;
-            $this->route = $route->getFileNameUrl() ?? $this->lastRoute;
-            return $this;
-        }
+        return $this;
+    }
 
-        /**
-         * Set upcoming Route
-         * @param string $route
-         * @return Routing
-         */
-        protected function setNextRoute(string $route): Routing {
-            $this->nextRoute = $route ??  $this->route;
-            return $this;
-        }
+    /**
+     * Set upcoming Route
+     */
+    protected function setNextRoute(string $route): self
+    {
+        $this->nextRoute = $route ?: $this->route;
+        return $this;
+    }
 
-        /**
-         * Summary of setScope
-         * @param mixed $query
-         * @return void
-         */
-        private function setScope($query = null): void {
-            $this->setRouteParams();
-            if(isset($query)) {
-                (View::GetVars() !== []) ? System::SetSession('storageData', View::GetVars()) : null;
-                $this->setExternalRoute($query);
+    private function setScope(?array $query = null): void
+    {
+        $this->setRouteParams();
+
+        if ($query !== null) {
+            $vars = View::GetVars();
+            if ($vars !== []) {
+                System::SetSession('storageData', $vars);
             }
+            $this->setExternalRoute($query);
         }
+    }
 
-        private function setExternalRoute($query = null) {
-            $params = [];
-            $params['requires'] = $this->routeParams ?? [];
-            $this->scope = (function($params) use ($query) {
-                return array_merge(
-                    $query[$this->getPath()] ??
-                    $query[$this->getBaseFile()] ??
-                    $query[$this->getFilename()] ??
-                    $query[$this->getFile()] ??
-                    $query[$this->action] ?? (($this->external = true) ? ($this->external ? [
-                        'type' => $this->fileType,
-                        'params' => $this->routeParams,
-                        'action' => '\Cimply\App\Base\FileCtrl::Init',
-                        'target' => '{->'.$this->get('baseFile').'}',
-                        'caching' => 'false'
-                    ] : null) : null)
-                , $params);
-            })($params);
-        }
+    private function setExternalRoute(array $query): void
+    {
+        $params = [
+            'requires' => $this->routeParams ?? [],
+        ];
 
-        /**
-         * Summary of setRouteParams
-         * @param mixed $query
-         * @return void
-         */
-        private function setRouteParams(): void {
-            $explPath = explode('/', $this->path);
-            $arrayResult = explode('_', ((count($explPath) %2) ? '_' : '').end($explPath));
-            $this->routeParams = $this->parseParams($arrayResult);
-        }
+        $this->scope = (function (array $params) use ($query): array {
+            $fallback = $query[$this->getPath()]
+                ?? $query[$this->getBaseFile()]
+                ?? $query[$this->getFilename()]
+                ?? $query[$this->getFile()]
+                ?? ($this->action !== null ? ($query[$this->action] ?? null) : null);
 
-        /**
-         * Summary of parseParams
-         * @param array $keyParam
-         * @return array
-         */
-        function parseParams(array $keyParam): array {
-            ksort($keyParam);
-            $result = [];
-            $keyName = "";
-            foreach($keyParam as $key => $value) {
-                if($key % 2) {
-                    $keyName = $value;
+            if ($fallback === null) {
+                $this->external = true;
+
+                $fallback = [
+                    'type'    => $this->fileType,
+                    'params'  => $this->routeParams,
+                    'action'  => '\Cimply\App\Base\FileCtrl::Init',
+                    'target'  => '{->' . $this->get('baseFile') . '}',
+                    'caching' => 'false',
+                ];
+            }
+
+            if (!is_array($fallback)) {
+                $fallback = [];
+            }
+
+            return array_merge($fallback, $params);
+        })($params);
+    }
+
+    private function setRouteParams(): void
+    {
+        $explPath = explode('/', (string)$this->path);
+        $last     = end($explPath);
+        $arrayResult = explode('_', ((count($explPath) % 2) ? '_' : '') . (string)$last);
+
+        $this->routeParams = $this->parseParams($arrayResult);
+    }
+
+    /**
+     * @param array<int, string> $keyParam
+     * @return array<string, string>
+     */
+    public function parseParams(array $keyParam): array
+    {
+        ksort($keyParam);
+        $result = [];
+        $keyName = '';
+
+        foreach ($keyParam as $key => $value) {
+            if ($key % 2) {
+                $keyName = (string)$value;
+            } else {
+                if (!empty($key)) {
+                    $result[$keyName] = (string)$value;
                 } else {
-                    !(empty($key)) ? $result[$keyName] = $value : $this->action = $value;
+                    $this->action = (string)$value;
                 }
             }
-            return $result;
         }
 
-        /**
-         * Summary of getFile
-         * @return mixed
-         */
-        function getFile(): ?string {
-            return empty($this->file) ? null : $this->file;
+        return $result;
+    }
+
+    public function getFile(): ?string
+    {
+        return empty($this->file) ? null : $this->file;
+    }
+
+    public function getPath(?string $path = null): ?string
+    {
+        $p = $path ?? $this->path;
+        if ($p === null) {
+            return null;
         }
 
-        /**
-         * Return action String
-         * @return string
-         */
-        function getPath($path = null): ?string {
-            (substr( $path, -1 ) == '/') ? $path = substr( $path, 0, -1 ) : null;
-            return str_replace('/', '_', $path ?? $this->path);
+        if (substr($p, -1) === '/') {
+            $p = substr($p, 0, -1);
         }
 
-        /**
-         * Return action-Path String
-         * @return string
-         */
-        function getActionPath($path = null): ?string {
-            (substr( $path, -1 ) == '/') ? $path = substr( $path, 0, -1 ) : null;
-            return $path;
+        return str_replace('/', '_', $p);
+    }
+
+    public function getActionPath(?string $path = null): ?string
+    {
+        $p = $path;
+        if ($p === null) {
+            return null;
         }
 
-        /**
-         * Return action
-         * @return string
-         */
-        function getAction() {
-            return $this->action;
+        if (substr($p, -1) === '/') {
+            $p = substr($p, 0, -1);
         }
 
-        /**
-         * Summary of getFilename
-         * @return mixed
-         */
-        function getFilename(): string {
-            return $this->fileName;
-        }
+        return $p;
+    }
 
-        /**
-         * Summary of getBaseFile
-         * @return mixed
-         */
-        function getBaseFile(): string {
-            return $this->baseFile;
-        }
+    public function getAction(): ?string
+    {
+        return $this->action;
+    }
 
-        /**
-         * Summary of getScope
-         * @return mixed
-         */
-        function getScope(): ?array {
-            return $this->scope;
-        }
+    public function getFilename(): string
+    {
+        return (string)$this->fileName;
+    }
 
-        /**
-         * Summary of getParams
-         * @return array
-         */
-        function getParams() {
-            return ($this->routeParams);
-        }
+    public function getBaseFile(): string
+    {
+        return (string)$this->baseFile;
+    }
 
-        function execute(): object {
-            return (object)[
-                "file" => $this->getFile(),
-                "path" => $this->getPath(),
-                "params" => $this->getParams(),
-                "scope" => (object)$this->getScope()
-            ];
-        }
+    public function getScope(): ?array
+    {
+        return is_array($this->scope) ? $this->scope : null;
+    }
 
-        function isExternal(): bool {
-            return (bool)$this->external;
-        }
+    /** @return array<string, mixed>|null */
+    public function getParams(): ?array
+    {
+        return $this->routeParams;
+    }
+
+    public function execute(): object
+    {
+        return (object)[
+            'file'   => $this->getFile(),
+            'path'   => $this->getPath(),
+            'params' => $this->getParams(),
+            'scope'  => (object)($this->getScope() ?? []),
+        ];
+    }
+
+    public function isExternal(): bool
+    {
+        return $this->external;
     }
 }
