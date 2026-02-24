@@ -12,8 +12,8 @@ trait Strings
 {
     /**
      * Check String
-     * @param mixed $var
-     * @param object $opt  expects: ->min, ->max, ->required
+     * @param mixed  $var
+     * @param object $opt expects: ->min, ->max, ->required
      */
     public function checkStrings($var, object $opt): void
     {
@@ -45,14 +45,13 @@ trait Strings
             return false;
         }
 
-        // normalize scalars to string for length checks
-        if (is_scalar($val)) {
-            $str = (string)$val;
-        } else {
+        // allow scalars; reject arrays/objects
+        if (!is_scalar($val)) {
             $this->errors[$key] = "[+%0% is an invalid string|{$key}+]";
             return false;
         }
 
+        $str = (string)$val;
         $len = mb_strlen($str);
 
         if ($min > 0 && $len < $min) {
@@ -77,11 +76,10 @@ trait Strings
         $key = (string)$var;
         $val = $this->source[$key] ?? null;
 
-        // FILTER_SANITIZE_STRING is deprecated in PHP 8.1; use a safe replacement.
+        // FILTER_SANITIZE_STRING is deprecated in PHP 8.1; use replacement.
         $str = is_scalar($val) ? (string)$val : '';
-
         $str = strip_tags($str);
-        // keep quotes and encode specials
+
         $this->sanitized[$key] = htmlspecialchars($str, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }
