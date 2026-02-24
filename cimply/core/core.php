@@ -22,8 +22,13 @@ namespace Cimply\Core {
          */
         public static function Cast($mainObject, $selfObject = self::class): object
         {
-            $cast = (ICast::Cull);
-            return $cast($mainObject, $selfObject);
+            // call Cull on the concrete class that uses the trait
+            if (is_string($selfObject) && method_exists($selfObject, 'Cull')) {
+                return $selfObject::Cull($mainObject, $selfObject);
+            }
+
+            // fallback: use late static binding
+            return static::Cull($mainObject, $selfObject);
         }
 
         /**
@@ -33,7 +38,6 @@ namespace Cimply\Core {
          */
         public static function FillObjectFromStdClass($std, $selfObject = self::class): object
         {
-            // allow passing class-string or object instance
             $instance = is_object($selfObject) ? clone $selfObject : new $selfObject();
 
             foreach ((array)$std as $attribute => $value) {
@@ -52,7 +56,12 @@ namespace Cimply\Core {
          */
         public static function fillableIsSetAndContainsAttribute(string $attribute): bool
         {
-            return (isset(static::$fillable) && is_array(static::$fillable) && count(static::$fillable) > 0 && in_array($attribute, static::$fillable, true));
+            return (
+                isset(static::$fillable)
+                && is_array(static::$fillable)
+                && count(static::$fillable) > 0
+                && in_array($attribute, static::$fillable, true)
+            );
         }
 
         /**
@@ -61,7 +70,6 @@ namespace Cimply\Core {
          */
         public static function fillableNotSet($selfObject): bool
         {
-            // if a class-string is passed, check that class; otherwise use current called class
             if (is_string($selfObject) && class_exists($selfObject)) {
                 return !isset($selfObject::$fillable);
             }
