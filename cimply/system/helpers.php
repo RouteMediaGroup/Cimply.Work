@@ -4,320 +4,376 @@
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
- */
+*/
 
-namespace Cimply\System {
-    class Helpers {
+declare(strict_types=1);
 
-        public static $response, $namespace = 'default', $project = 'default', $vars = [];
+namespace Cimply\System;
 
-        /**
-         * 
-         * @param type $key
-         * @param type $var
-         * @param type $filter
-         * @param type $overwrite
-         * 
-         */
-        public static function Setter($key = null, $var = null, $filter = null, $overwrite = false) {	           
-            $vars = array();
-            if(isset($key) && (isset($var))) {
-                (is_string($key) && array_key_exists($key, self::$vars)) ? $vars = self::$vars[$key] : null;
-                $var = \ArrayParser::FilterArray($var, $filter);
-                if(!(empty($vars)) && $overwrite == false) {
-                    if(isset($filter)) {
-                        self::$vars[$key] = (isset($var[$filter]) && is_array($var[$filter])) ? array_merge($vars, $var[$filter]) : $vars;
-                    } else {
-                        self::$vars[$key] =  is_array($var) ? array_merge($vars, $var) : $vars;
-                    }
-                } else {
-                    if(!isset($vars) || !$overwrite == true) {
-                        (is_string($key) || is_integer($key)) ? self::$vars[$key] = $var : null;    
-                    }    
-                }
-            }
+use ReflectionClass;
+use ReflectionMethod;
+use SimpleXMLElement;
+
+class Helpers
+{
+    /** @var mixed */
+    public static $response = null;
+
+    public static string $namespace = 'default';
+    public static string $project = 'default';
+
+    /** @var array<string|int, mixed> */
+    public static array $vars = [];
+
+    public static function Setter($key = null, $var = null, ?string $filter = null, bool $overwrite = false): void
+    {
+        if ($key === null || $var === null) {
+            return;
         }
-        
-        /**
-         * 
-         * @param type $key
-         * @param type $isArray
-         * @return type
-         * 
-         */
-        public static function Getter($key, $isArray = true) {
-            if($isArray) {
-                $result = array();
-                $result[$key] = self::$vars[$key];
-            } else {
-                $result = self::$vars[$key];
+
+        $existing = (is_string($key) || is_int($key)) && array_key_exists($key, self::$vars) ? (self::$vars[$key] ?? null) : null;
+
+        if (class_exists(\ArrayParser::class) && method_exists(\ArrayParser::class, 'FilterArray')) {
+            $var = \ArrayParser::FilterArray($var, $filter);
+        }
+
+        if (is_array($existing) && !$overwrite) {
+            if ($filter !== null) {
+                $filtered = (is_array($var) && isset($var[$filter]) && is_array($var[$filter])) ? $var[$filter] : null;
+                self::$vars[$key] = is_array($filtered) ? array_merge($existing, $filtered) : $existing;
+                return;
             }
+
+            self::$vars[$key] = is_array($var) ? array_merge($existing, $var) : $existing;
+            return;
+        }
+
+        if (is_string($key) || is_int($key)) {
+            self::$vars[$key] = $var;
+        }
+    }
+
+    public static function Getter($key, bool $isArray = true)
+    {
+        $value = self::$vars[$key] ?? null;
+        return $isArray ? [$key => $value] : $value;
+    }
+
+    public static function GetItems($key = null, $subkey = null, bool $explicitly = false)
+    {
+        if ($explicitly) {
+            return ($key !== null && $subkey !== null && isset(self::$vars[$key]) && is_array(self::$vars[$key]) && array_key_exists($subkey, self::$vars[$key]))
+                ? self::$vars[$key][$subkey]
+                : null;
+        }
+
+        if ($key !== null && array_key_exists($key, self::$vars)) {
+            if ($subkey !== null && is_array(self::$vars[$key]) && array_key_exists($subkey, self::$vars[$key])) {
+                return self::$vars[$key][$subkey];
+            }
+            return self::$vars[$key];
+        }
+
+        return $key !== null ? null : self::$vars;
+    }
+
+    public static function GetUnique(string $varName = ''): mixed
+    {
+        if ($varName === '') {
+            return null;
+        }
+
+        if (isset($_SESSION[$varName])) {
+            $result = $_SESSION[$varName];
+            self::ClearSession($varName);
             return $result;
         }
 
-        /**
-         * 
-         * @param type $key
-         * @param type $subkey
-         * @param type $explicitly
-         * @return type
-         * 
-         */
-        public static function GetItems($key = null, $subkey = null, $explicitly = false) {
-            if($explicitly == true) {
-                if(isset(self::$vars[$key][$subkey])) {
-                    return self::$vars[$key][$subkey];
-                }
-                return null;
-            }
-            if(isset(self::$vars[$key])) {
-                if(isset($subkey) && (isset(self::$vars[$key][$subkey]))) {
-                    return self::$vars[$key][$subkey];
-                } else {
-                    return self::$vars[$key];    
-                }
-            }
-            if(isset($key)) {
-                return null;
-            }
-            return self::$vars;
+        return null;
+    }
+
+    public static function GetGlobal(string $varName): mixed
+    {
+        return $_SESSION[$varName] ?? null;
+    }
+
+    public static function SetSession(string $varName, mixed $varValue): void
+    {
+        if ($varName === '') {
+            return;
         }
 
-        public static function GetUnique($varName = '') {
-            $result = null;
-            if(isset($_SESSION[$varName])) {
-                $result = $_SESSION[$varName];
-                self::ClearSession($varName);
+        if (isset($_SESSION[$varName]) && is_array($_SESSION[$varName]) && is_array($varValue)) {
+            $_SESSION[$varName] = array_merge($_SESSION[$varName], $varValue);
+            return;
+        }
+
+        $_SESSION[$varName] = $varValue;
+    }
+
+    public static function GetSession(string $varName = '', $key = null): mixed
+    {
+        if ($varName === '' || !isset($_SESSION[$varName])) {
+            return null;
+        }
+
+        if ($key !== null && is_array($_SESSION[$varName])) {
+            return $_SESSION[$varName][$key] ?? null;
+        }
+
+        return $_SESSION[$varName];
+    }
+
+    public static function ClearSession(string $varName = ''): void
+    {
+        if ($varName === '') {
+            if (!isset($_SESSION) || !is_array($_SESSION)) {
+                return;
             }
-            return $result;
-        }
 
-        public static function GetGlobal($varName) {
-            $return = $_SESSION[$varName] ?? null;
-                //CIM::assignVars($varName, $return);
-                //self::ClearSession($varName);
-            
-            return $return;
-        }
-
-        public static function SetSession($varName, $varValue) {
-            if(isset($varName) && (isset($varValue))) {
-                if(isset($_SESSION[$varName]) && is_array($_SESSION[$varName])) {
-                    $_SESSION[$varName] = array_merge($_SESSION[$varName], $varValue); 
-                } else {
-                    $_SESSION[$varName] = $varValue;  
+            foreach (array_keys($_SESSION) as $key) {
+                if (($_SESSION[$key] ?? null) !== 'project') {
+                    unset($_SESSION[$key]);
                 }
-            } 
+            }
+            return;
         }
 
-        public static function GetSession($varName = '', $key = null) {
-            if(isset($_SESSION[$varName])) {
-                if(isset($key) && (is_array($_SESSION[$varName]))) {
-                    return $_SESSION[$varName][$key];
-                } else {
-                    return $_SESSION[$varName];
+        if (array_key_exists($varName, $_SESSION)) {
+            unset($_SESSION[$varName]);
+        }
+    }
+
+    public function SetBaseDir(string $dir = ''): ?string
+    {
+        if ($dir === '/' || $dir === '') {
+            return null;
+        }
+
+        if (property_exists($this, 'conf') && property_exists($this, 'baseDir')) {
+            /** @var array<string,mixed> $conf */
+            $conf = $this->conf ?? [];
+            $symlink = (bool)($conf['symlink'] ?? false);
+
+            if ($symlink) {
+                $baseDir = (string)($conf['baseDir'] ?? '');
+                if ($baseDir !== '' && ($this->baseDir ?? null) === $baseDir) {
+                    $this->baseDir = '/' . $baseDir . '/';
                 }
+                $this->baseDir = (string)($this->baseDir ?? '') . $dir;
+                return $this->baseDir;
+            }
+        }
+
+        return null;
+    }
+
+    public function __invoke(): mixed
+    {
+        if (!property_exists($this, 'callable') || !property_exists($this, 'args')) {
+            return null;
+        }
+
+        $callable = $this->callable;
+        $args = is_array($this->args ?? null) ? $this->args : [];
+
+        return call_user_func_array($callable, array_merge($args, func_get_args()));
+    }
+
+    public static function Invoke($name = null, ?string $class = null, ?string $method = null, $data = [], $viewModel = null)
+    {
+        if ($class === null) {
+            return null;
+        }
+
+        $fqcn = str_replace(['/', '\\\\'], ['\\', '\\'], $class);
+
+        if (!class_exists($fqcn)) {
+            return null;
+        }
+
+        $ref = new ReflectionClass($fqcn);
+        if ($ref->isAbstract()) {
+            return false;
+        }
+
+        $objClass = new $fqcn($data, $viewModel);
+
+        if ($method === null || $method === '') {
+            $method = '__construct';
+        } else {
+            if (class_exists(\Annotation::class) && method_exists(\Annotation::class, 'RouteClass')) {
+                self::Setter('Annotate', \Annotation::RouteClass($fqcn, $method) ?? []);
+            }
+        }
+
+        $parseData = is_array($data)
+            ? $data
+            : (class_exists(\JsonDeEncoder::class) && method_exists(\JsonDeEncoder::class, 'Decode')
+                ? (\JsonDeEncoder::Decode($data, true) ?? [])
+                : []);
+
+        if (!is_array($parseData)) {
+            $parseData = [];
+        }
+
+        foreach ($parseData as $k => $v) {
+            if (is_array($v)) {
+                self::Setter($k, $v);
             } else {
-                return null;
+                if (!property_exists($objClass, 'parameter') || !is_array($objClass->parameter ?? null)) {
+                    $objClass->parameter = [];
+                }
+                $objClass->parameter[$k] = $v;
             }
         }
 
-        public static function ClearSession($varName='') {
-            if(!($varName)) {
-                $data = isset($_SESSION) ? $_SESSION : [];
-                foreach($data as $key=>$vars) {
-                    if(!($vars == 'project')) {
-                        unset($_SESSION[$key]);
-                    }
-                }
+        return self::CallFunction($objClass, $method, $parseData);
+    }
+
+    private static function CallFunction(object $objClass, string $method, array $parseData = []): mixed
+    {
+        $reflection = new ReflectionMethod($objClass, $method);
+
+        if (!$reflection->isPublic()) {
+            return "expects parameter 1 to be a valid callback, cannot access private method '{$method}()'";
+        }
+
+        $result = call_user_func_array([$objClass, $method], $parseData);
+
+        $objClass->$method = $result;
+
+        $path = self::GetItems('CurrentObject', 'databinding');
+        if (is_array($path)) {
+            if (
+                isset($path['name'], $path['filetype'], $path['callback']) &&
+                isset($result) &&
+                method_exists(self::class, 'SetStorage')
+            ) {
+                self::SetStorage($path['name'] . '.' . $path['filetype'], $result, $path['callback']);
             } else {
-                isset($_SESSION[$varName]) ? $_SESSION[$varName] = null : null;
+                $type = self::GetItems('CurrentObject', 'type');
+                self::Callback($result, $type);
             }
         }
 
-        public function SetBaseDir($dir = '') {
-            //$this->conf = CIM::useConfig();
-            if(!($dir == '/') AND ($this->conf['symlink']==true)) {
-                if($baseDir === self::$conf['baseDir']) {
-                    $this->baseDir = '/'.$baseDir.'/';
-                }
-                return $this->baseDir = $this->baseDir.$dir;
-            }
+        return $objClass->$method;
+    }
+
+    public static function Callback($result, $type = true, ?string $key = null): mixed
+    {
+        if ($result === null || $result === '' || $result === []) {
+            return false;
         }
 
-        public function __invoke() {
-            call_user_func_array($this->callable, array_merge($this->args, func_get_args()));
-        }
+        switch ($type) {
+            case 'config':
+                return json_encode(self::GetItems(), JSON_UNESCAPED_UNICODE);
 
-        public static function Invoke($name = null, $class = null, $method = null, $data = array(), $viewModel = null) {
-            if (\class_exists(str_replace('/', '\\', $class))) {
-                $abstractClass = new \ReflectionClass(str_replace('\\\\', '\\', $class));
-                if(!$abstractClass->isAbstract()) {
-                    class_exists($class) ? $objClass = new $class($data, $viewModel) : null;
-                } else {
-                    return false;
+            case 'xml':
+                $xml = new SimpleXMLElement('<root/>');
+                if (is_array($result)) {
+                    array_walk_recursive($result, [$xml, 'addChild']);
                 }
-                if(empty($method)) {
-                    $method = '__construct';
-                } else {                   
-                    self::Setter('Annotate', \Annotation::RouteClass($class, $method) ?? []);
+                echo $xml->asXML();
+                return null;
+
+            case 'yml':
+                return class_exists(\YamlParser::class) && method_exists(\YamlParser::class, 'ArrayToYAML')
+                    ? \YamlParser::ArrayToYAML($result)
+                    : null;
+
+            case 'json':
+                header('Content-Type: application/json');
+                die(json_encode($result, JSON_UNESCAPED_UNICODE));
+
+            case '_json':
+                header('Content-Type: application/json');
+                return json_encode($result, JSON_UNESCAPED_UNICODE);
+
+            case 'localstorage':
+                return json_encode($result, JSON_UNESCAPED_UNICODE);
+
+            case 'jsVar':
+                $safeKey = $key ?? 'data';
+                $val = is_scalar($result) ? (string)$result : json_encode($result, JSON_UNESCAPED_UNICODE);
+                return "<script> var {$safeKey} = '" . addslashes((string)$val) . "'; console.log({$safeKey});</script>";
+
+            case 'console':
+                echo json_encode($result, JSON_UNESCAPED_UNICODE);
+                if ($result) {
+                    exit;
                 }
-                $parseData = is_array($data) ? $data : \JsonDeEncoder::Decode($data, true) ?? [];
-                foreach ($parseData as $key => $value) {
-                    if (is_array($value)) {
-                        $objClass = self::Setter($objClass, $value);
-                    } else {
-                        $objClass->parameter[$key] = $value;
-                    }
-                }
-                return self::CallFunction($objClass, $method, $parseData);
-            }
-        }
-        
-        private static function CallFunction($objClass = null, $method = null, $parseData = array()) {
-            if(isset($objClass)) {
-                $reflection = new \ReflectionMethod($objClass, $method);
-                if ($reflection->isPublic()) {
-                    $objClass->$method = \call_user_func_array(array($objClass, $method), $parseData);
-                } else {
-                    return ("expects parameter 1 to be a valid callback, cannot access private method '{$method}()'");    
-                }
-            }
-            if(is_array($path = self::GetItems('CurrentObject', 'databinding'))) {
-                $datamodel = isset($method) && !is_array($parseData) ? call_user_func_array(array( $objClass, $method), $parseData) : null;
-                if(isset($path['name']) && isset($path['filetype']) && isset($path['callback']) && isset($datamodel)) {
-                    self::SetStorage($path['name'].'.'.$path['filetype'], $datamodel, $path['callback']);    
-                } else {
-                    isset($objClass->$method) ? self::Callback($objClass->$method, self::GetItems('CurrentObject', 'type')) : null;    
-                }
-            }
-            return $objClass->$method;
-        }
+                return null;
 
-        /**
-         * 
-         * @param type $result
-         * @param type $type
-         * @param type $key
-         * @return boolean
-         * 
-         */
-        public static function Callback($result, $type = true, $key = null) {
-            if(empty($result)) {
-                return false;
-            }
-            switch ($type) {
-                case "config":
-                    return json_encode(self::GetItems());
-                    break;
+            case 'html':
+                return htmlentities((string)$result);
 
-                case "xml":
-                    $xml = new SimpleXMLElement('<root/>');
-                    array_walk_recursive($result, array ($xml, 'addChild'));
-                    print $xml->asXML();
-                    break;
+            case 'text':
+                return strip_tags((string)$result);
 
-                case "yml":
-                    //header('Content-type: text/html');
-                    return \YamlParser::ArrayToYAML($result);
+            case 'serialize':
+                return serialize($result);
 
-                case "json":
-                    header('Content-Type: application/json');
-                    die(json_encode($result, true));
-                    break;
+            case 'unserialize':
+                return is_string($result) ? @unserialize($result) : null;
 
-                case "_json":
-                    header('Content-Type: application/json');
-                    return json_encode($result);
-                    break;
+            case 'array':
+                return is_array($result) ? $result : [$result];
 
-                case "localstorage":
-                    return json_encode($result);
-                    break;
-
-                case "jsVar":
-                    return "<script> var ".$key." = '". $result ."'; console.log(".$key.");</script>";
-                    break;
-                
-                case "console":
-                    echo json_encode($result);
-                    if($result) {
-                        exit;
-                    }
-                    break;
-
-                case "html":
-                    return htmlentities($result);
-                    break;
-
-                case "text":
-                    return strip_tags($result);
-                    break;
-
-                case "serialize":
-                    return serialize($result);
-                    break;
-
-                case "unserialize":
-                    return unserialize($result);
-                    break;
-
-                case "array":
-                    foreach($result as $key=>$val) {
-                        $array[$key] = $val;
-                    }
-                    return $array;
-                    break;
-
-                case "yaml":
+            case 'yaml':
+                if (method_exists(self::class, 'ArrayToYAML')) {
                     return self::ArrayToYAML($result);
-                    break;
-                
-                case "object":
-                    echo $result;
-                    break;
-                
-                case "trim":
-                    return trim($result, '"');
-                    break;
-                
-                case "list":
-                    return parent::__invoke('result', 'TableBuilder', 'buildTable', $result)->result;
-                    break;
+                }
+                return class_exists(\YamlParser::class) && method_exists(\YamlParser::class, 'ArrayToYAML')
+                    ? \YamlParser::ArrayToYAML($result)
+                    : null;
 
-                case "clean":
-                    return $result;
-                    break;
-                
-                default:
-                    echo json_encode($result);
-                    break;
+            case 'object':
+                echo (string)$result;
+                return null;
+
+            case 'trim':
+                return trim((string)$result, '"');
+
+            case 'list':
+                // IMPORTANT: no parent:: here (Helpers has no parent)
+                $tb = self::Invoke('result', 'TableBuilder', 'buildTable', (array)$result);
+                return (is_object($tb) && isset($tb->result)) ? $tb->result : null;
+
+            case 'clean':
+                return $result;
+
+            default:
+                echo json_encode($result, JSON_UNESCAPED_UNICODE);
+                return null;
+        }
+    }
+
+    private static function determiningClass(string $code): array
+    {
+        $classes = [];
+        $tokens  = token_get_all($code);
+        $count   = count($tokens);
+
+        for ($i = 2; $i < $count; $i++) {
+            if (
+                is_array($tokens[$i - 2]) && $tokens[$i - 2][0] === T_NAMESPACE &&
+                is_array($tokens[$i - 1]) && $tokens[$i - 1][0] === T_WHITESPACE &&
+                is_array($tokens[$i]) && $tokens[$i][0] === T_STRING
+            ) {
+                $classes[] = (string)$tokens[$i][1];
+            }
+
+            if (
+                is_array($tokens[$i - 2]) && $tokens[$i - 2][0] === T_CLASS &&
+                is_array($tokens[$i - 1]) && $tokens[$i - 1][0] === T_WHITESPACE &&
+                is_array($tokens[$i]) && $tokens[$i][0] === T_STRING
+            ) {
+                $classes[] = (string)$tokens[$i][1];
             }
         }
 
-        /**
-         * 
-         * @param type $code
-         * @return type
-         * 
-         */
-        private static function determiningClass($code) {
-            $classes = array();
-            $tokens = token_get_all($code);
-            $count = count($tokens);
-            for ($i = 2; $i < $count; $i++) {
-                if ($tokens[$i - 2][0] == T_NAMESPACE && $tokens[$i - 1][0] == T_WHITESPACE && $tokens[$i][0] == T_STRING) {
-                    $namespace = $tokens[$i][1];
-                    $classes[] = $namespace;
-                }
-                if ($tokens[$i - 2][0] == T_CLASS && $tokens[$i - 1][0] == T_WHITESPACE && $tokens[$i][0] == T_STRING) {
-                    $class_name = $tokens[$i][1];
-                    $classes[] = $class_name;
-                }
-            }
-            return $classes;
-        }
-
-
+        return $classes;
     }
 }
