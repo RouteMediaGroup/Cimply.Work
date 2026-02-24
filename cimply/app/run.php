@@ -20,7 +20,7 @@ use Cimply\Core\View\Translate;
 use Cimply\Interfaces\Support\Enum\AppSettings;
 use Cimply\Interfaces\Support\Enum\RootSettings;
 
-final class Run extends Basics
+class Run extends Basics
 {
     public bool $isDebug = false;
 
@@ -45,15 +45,29 @@ final class Run extends Basics
         $this->projectPath = str_replace('%project%', $projectName, Settings::ProjectPath);
 
         $config = parent::GetConfig()->loader($this->projectPath . 'config.yml', static::$conf) ?? [];
-        $config = array_map(fn (string $str): string => str_replace('%project%', $this->projectName, $str), $config);
+
+        // recursive replacement of %project% only in string values
+        $replace = function ($v) use (&$replace) {
+            if (is_string($v)) {
+                return str_replace('%project%', $this->projectName, $v);
+            }
+            if (is_array($v)) {
+                foreach ($v as $k => $vv) {
+                    $v[$k] = $replace($vv);
+                }
+            }
+            return $v;
+        };
+
+        $config = $replace($config);
 
         $this->settings = $this->instance->addInstance(new Support($config));
-        $this->isDebug  = (bool) $this->settings->getSettings([], RootSettings::DEVMODE);
+        $this->isDebug  = (bool)$this->settings->getSettings([], RootSettings::DEVMODE);
     }
 
     public function register(): ServiceLocator
     {
-        $rootUrl = (string) $this->settings->getSettings([], AppSettings::BASEURL);
+        $rootUrl = (string)$this->settings->getSettings([], AppSettings::BASEURL);
 
         $routingPath = (new UriManager())->getRoutingPath($rootUrl);
         $routingCfg  = parent::GetConfig()->loader(
@@ -89,7 +103,7 @@ final class Run extends Basics
     {
         ($this->autoloader)($this->settings->getAssembly());
 
-        $appClass = (string) $this->settings->getSettings([], AppSettings::PROJECTNAMESPACE);
+        $appClass = (string)$this->settings->getSettings([], AppSettings::PROJECTNAMESPACE);
 
         return new $appClass($this->register());
     }
