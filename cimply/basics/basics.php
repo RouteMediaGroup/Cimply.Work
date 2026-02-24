@@ -1,88 +1,155 @@
 <?php
-
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+ * Cimply.Work - Business Framework 2012-2025: Proprietary commercial license © RouteMedia® – Represented by Michael Eckebrecht. 
+ * Contact: direkt@route-media.info. All rights reserved.
+*/
+
+declare(strict_types=1);
 
 namespace Cimply\Basics {
-    use \Cimply\System\{System, Config};
-    use \Cimply\Core\ {
-        View\View, Validator\Validator, Request\Uri\UriManager
-    };
-    class Basics extends System {
-        use \Properties, \Cast;
-        protected $actionPath = null;
-        public $type = 'html', $action = null, $controller = null, $method = null, $target = null, $markupFile = '', $markup = [], $routings = [], $templating = [], $requires =  [], $validate = null, $params = [], $session = [], $caching = false;
 
-        function __construct($instance = null) {
+    use Cimply\Core\Request\Uri\UriManager;
+    use Cimply\Core\Validator\Validator;
+    use Cimply\Core\View\View;
+    use Cimply\System\Config;
+    use Cimply\System\System;
+
+    class Basics extends System
+    {
+        use \Properties, \Cast;
+
+        protected ?string $actionPath = null;
+
+        public string $type = 'html';
+        public ?string $action = null;
+        public mixed $controller = null;
+        public mixed $method = null;
+        public mixed $target = null;
+
+        public string $markupFile = '';
+        public array $markup = [];
+        public array $routings = [];
+        public array $templating = [];
+        public array $requires = [];
+        public mixed $validate = null;
+        public array $params = [];
+        public array $session = [];
+        public bool $caching = false;
+
+        public function __construct($instance = null)
+        {
             parent::__construct(new Config(), 'system.config.yml');
         }
 
-        /**
-         * Summary of Cast
-         * @param mixed $mainObject
-         * @param mixed $selfObject
-         * @return mixed
-         */
-        final static function Cast($mainObject, $selfObject = self::class): self {
+        final public static function Cast($mainObject, $selfObject = self::class): self
+        {
+            /** @var self */
             return static::Cull($mainObject, $selfObject, true);
         }
 
-        final function route($path, $action, $options = null) {
+        final public function route(string $path, callable $action, $options = null): self
+        {
             $this->actionPath = str_replace('/', '_', $path);
-            $this->routings[(string)$this->actionPath] = $action;
+            $this->routings[$this->actionPath] = $action;
             return $this;
         }
 
-        final function assign($params = []): self {
-            isset($this->actionPath) ? View::Assign(array_merge($this->params, $params)) : null;
+        final public function assign(array $params = []): self
+        {
+            if ($this->actionPath !== null) {
+                View::Assign(array_merge($this->params, $params));
+            }
             return $this;
         }
 
-        final function validates($requires = []): self {
-            isset($this->actionPath) ? $this->validate = (new Validator)->addRules($requires) : null;
+        final public function validates(array $requires = []): self
+        {
+            if ($this->actionPath !== null) {
+                $this->validate = (new Validator())->addRules($requires);
+            }
             return $this;
         }
 
-        final function action($action = ''): self {
-            isset($this->actionPath) ? $this->action = $action : null;
+        final public function action(string $action = ''): self
+        {
+            if ($this->actionPath !== null) {
+                $this->action = $action;
+            }
             return $this;
         }
 
-        private function validRoutingChecker($expActionPath, $expPath) {
+        /**
+         * @param array<int, string> $expActionPath
+         * @param array<int, string> $expPath
+         */
+        private function validRoutingChecker(array $expActionPath, array $expPath): bool
+        {
             $checked = [];
             $validType = [];
-            foreach($expActionPath as $key => $value) {
+
+            foreach ($expActionPath as $key => $value) {
                 $typeCheck = [];
-                $var = explode(':', $expPath[$key]);
-                if(isset($var[1])) {
-                    ($var[1][0] == 'i') ? $typeCheck[$var[1]] = is_numeric($value) : false;
-                    ($var[1][0] == 'b') ? $typeCheck[$var[1]] = is_bool($value) : false;
-                    ($var[1][0] == 'f') ? $typeCheck[$var[1]] = is_float($value) : false;
-                    ($var[1][0] == 's') ? $typeCheck[$var[1]] = is_string($value) : false;
-                    $validType[] = !empty($typeCheck[$var[1]]) ? $typeCheck[$var[1]] : false;
+                $var = explode(':', $expPath[$key] ?? '');
+
+                if (isset($var[1]) && $var[1] !== '') {
+                    $t = $var[1][0] ?? '';
+
+                    if ($t === 'i') {
+                        $typeCheck[$var[1]] = is_numeric($value);
+                    } elseif ($t === 'b') {
+                        // URL params are strings; allow "true/false/0/1" as bool-ish
+                        $typeCheck[$var[1]] = in_array(strtolower((string)$value), ['0', '1', 'true', 'false'], true);
+                    } elseif ($t === 'f') {
+                        $typeCheck[$var[1]] = is_numeric($value);
+                    } elseif ($t === 's') {
+                        $typeCheck[$var[1]] = is_string($value);
+                    }
+
+                    $validType[] = !empty($typeCheck[$var[1]]) ? (bool)$typeCheck[$var[1]] : false;
                 } else {
-                    ($value != $expPath[$key] ? $checked[] = $value : null);
+                    if ($value !== ($expPath[$key] ?? null)) {
+                        $checked[] = $value;
+                    }
                 }
             }
 
-            return empty($checked) ? (bool)!in_array(false, $validType) : false;
+            return empty($checked) ? !in_array(false, $validType, true) : false;
         }
 
-        final function routing(string $actionPath = null): ?array {
+        final public function routing(?string $actionPath = null): ?array
+        {
             $this->actionPath = UriManager::ActionPath();
-            if(($currentRoute = $this->routings[$actionPath] ?? null) === null) {
-                array_walk($this->routings, function($scope, $path) use(&$currentRoute, $actionPath) {
-                    if(count($expPath = explode('_', $path)) === count($expActionPath = explode('_', $actionPath)) && implode('_', array_combine($expPath, $expActionPath)) ?? false) {
-                        $this->validRoutingChecker($expActionPath, $expPath) === true ? $currentRoute = $this->routings[$path] : null;
+            $lookup = $actionPath ?? $this->actionPath;
+
+            $currentRoute = $this->routings[$lookup] ?? null;
+
+            if ($currentRoute === null) {
+                foreach ($this->routings as $path => $scope) {
+                    $expPath = explode('_', (string)$path);
+                    $expActionPath = explode('_', (string)$lookup);
+
+                    if (count($expPath) !== count($expActionPath)) {
+                        continue;
                     }
-                });
-            } else {
-                $currentRoute = $this->routings[$actionPath];
+
+                    // keep original intent: ensures arrays can be combined
+                    if ((implode('_', array_combine($expPath, $expActionPath)) ?? '') === '') {
+                        continue;
+                    }
+
+                    if ($this->validRoutingChecker($expActionPath, $expPath) === true) {
+                        $currentRoute = $scope;
+                        break;
+                    }
+                }
             }
-            return (isset($currentRoute) ? [$this->actionPath => (array)$currentRoute()] : ['externalFile' => true]);
+
+            if (is_callable($currentRoute)) {
+                $result = $currentRoute();
+                return [$this->actionPath => (array)$result];
+            }
+
+            return ['externalFile' => true];
         }
     }
 }
