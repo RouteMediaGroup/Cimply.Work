@@ -1,62 +1,106 @@
 <?php
-
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-namespace Cimply\App {
-    use \Cimply\Basics\Repository\Support;
-    use \Cimply\Core\{Request\Request, Request\Uri\UriManager, Routing\Routing, Model\Mapper, Model\Wrapper, View\Translate};
-    use \Cimply\Basics\{Basics, ServiceLocator\ServiceLocator};
-    use \Cimply\Interfaces\Support\Enum\{RootSettings, AppSettings};
+ * Cimply.Work - Business Framework 2012-2025: Proprietary commercial license © RouteMedia® – Represented by Michael Eckebrecht. 
+ * Contact: direkt@route-media.info. All rights reserved.
+*/
 
-    class Run extends Basics {
-        public $isDebug = false;
-        protected $instance = null, $autoloader = null, $projectName = null, $projectPath = null, $settings = null;
-        function __construct(...$args) {
-            parent::__construct();
-            session_id() === null ? session_id($args[0]) : (session_status() != 1) ? session_start() : true;
-            $this->instance = ServiceLocator::Cast(null);
-            
-            $this->autoloader = $args[1];
-            $this->projectName = $args[0];
-            $this->projectPath = (str_replace('%project%', $args[0], Settings::ProjectPath));
-            //add instance of project settings
-            $this->settings = $this->instance->addInstance(new Support(array_map(
-                (function($str) {
-                    return str_replace('%project%', $this->projectName, $str);
-                }), parent::GetConfig()->loader($this->projectPath.'config.yml', static::$conf) ?? []
-            )));
-            $this->isDebug = $this->settings->getSettings([], RootSettings::DEVMODE);
+declare(strict_types=1);
+
+namespace Cimply\App;
+
+use Cimply\Basics\Basics;
+use Cimply\Basics\Repository\Support;
+use Cimply\Basics\ServiceLocator\ServiceLocator;
+use Cimply\Core\Model\Mapper;
+use Cimply\Core\Model\Wrapper;
+use Cimply\Core\Request\Request;
+use Cimply\Core\Request\Uri\UriManager;
+use Cimply\Core\Routing\Routing;
+use Cimply\Core\View\Translate;
+use Cimply\Interfaces\Support\Enum\AppSettings;
+use Cimply\Interfaces\Support\Enum\RootSettings;
+
+final class Run extends Basics
+{
+    public bool $isDebug = false;
+
+    protected ServiceLocator $instance;
+
+    /** @var callable */
+    protected $autoloader;
+
+    protected string $projectName;
+    protected string $projectPath;
+    protected Support $settings;
+
+    public function __construct(string $projectName, callable $autoloader)
+    {
+        parent::__construct();
+
+        $this->ensureSession($projectName);
+
+        $this->instance    = ServiceLocator::Cast(null);
+        $this->autoloader  = $autoloader;
+        $this->projectName = $projectName;
+        $this->projectPath = str_replace('%project%', $projectName, Settings::ProjectPath);
+
+        $config = parent::GetConfig()->loader($this->projectPath . 'config.yml', static::$conf) ?? [];
+        $config = array_map(fn (string $str): string => str_replace('%project%', $this->projectName, $str), $config);
+
+        $this->settings = $this->instance->addInstance(new Support($config));
+        $this->isDebug  = (bool) $this->settings->getSettings([], RootSettings::DEVMODE);
+    }
+
+    public function register(): ServiceLocator
+    {
+        $rootUrl = (string) $this->settings->getSettings([], AppSettings::BASEURL);
+
+        $routingPath = (new UriManager())->getRoutingPath($rootUrl);
+        $routingCfg  = parent::GetConfig()->loader(
+            $this->projectPath . 'routing.yml',
+            $this->routing($routingPath)
+        );
+
+        $this->instance->addInstance(new Routing($routingCfg));
+
+        $this->instance->addInstance(new Request($this->validate));
+
+        $rootPattern = Support::Cast($this->instance->getService())->getRootSettings(RootSettings::PATTERN);
+        $globals     = parent::GetConfig()->loader($this->projectPath . 'globals.yml', []) ?? [];
+
+        $this->instance->addInstance(
+            (new Translate($rootPattern))->set($globals, true)
+        );
+
+        $mapperCfg = parent::GetConfig()->loader($this->projectPath . 'mapper.yml', []) ?? [];
+        $mapper    = $this->instance->addInstance((new Mapper())->set($mapperCfg, true));
+
+        $models = [];
+        foreach (Mapper::Cast($mapper)->getMappers() ?? [] as $file) {
+            $models = parent::GetConfig()->loader($this->projectPath . $file, $models) ?? $models;
         }
 
-        final function register(): ServiceLocator {
-            //add instance of routing
-            $rootUrl = $this->settings->getSettings([], AppSettings::BASEURL);
-            $this->instance->addInstance(new Routing(parent::GetConfig()->loader($this->projectPath.'routing.yml', $this->routing((new UriManager)->getRoutingPath($rootUrl)))));
+        $this->instance->addInstance((new Wrapper())->set($models));
 
-            //add instance of request-data
-            $this->instance->addInstance(new Request($this->validate));
-            //add instance of globale translations
-            $this->instance->addInstance((new Translate(Support::Cast($this->instance->getService())->getRootSettings(RootSettings::PATTERN)))->set(parent::GetConfig()->loader($this->projectPath.'globals.yml', []) ?? [], true));
-            //add instance of mapping
-            $mapper = $this->instance->addInstance((new Mapper())->set(parent::GetConfig()->loader($this->projectPath.'mapper.yml', []) ?? [], true));
+        return $this->instance;
+    }
 
-            $models = [];
-            foreach( Mapper::Cast($mapper)->getMappers() ?? [] as $value) {
-                $models = parent::GetConfig()->loader($this->projectPath.$value, $models);
+    public function execute(): self
+    {
+        ($this->autoloader)($this->settings->getAssembly());
+
+        $appClass = (string) $this->settings->getSettings([], AppSettings::PROJECTNAMESPACE);
+
+        return new $appClass($this->register());
+    }
+
+    private function ensureSession(string $sessionId): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            if (session_id() === '') {
+                session_id($sessionId);
             }
-
-            //add instance of model-wrappers
-            $this->instance->addInstance((new Wrapper())->set($models));
-            return $this->instance;
-        }
-
-        final function execute(): self {
-            ($this->autoloader)($this->settings->getAssembly());
-            $app = $this->settings->getSettings([], AppSettings::PROJECTNAMESPACE);
-            return (new $app($this->register()));
+            session_start();
         }
     }
 }
