@@ -1,69 +1,114 @@
 <?php
+/*
+ * Cimply.Work - Business Framework 2012-2025: Proprietary commercial license © RouteMedia® – Represented by Michael Eckebrecht. 
+ * Contact: direkt@route-media.info. All rights reserved.
+*/
+
 namespace Cimply\Core\View {
 
-    /**
-     * Description of CIM
-     *
-     * @author MikeCorner
-     */
-    use \Cimply\System\Helpers as Helper;
-    use \Cimply\Core \{
-        Document\Dom, Request\Uri\UriManager
+    use Cimply\System\Helpers as Helper;
+    use Cimply\Core\{
+        Document\Dom,
+        Request\Uri\UriManager
     };
-    use \Cimply\Interfaces\Support\Enum \{
-        PatternSettings, CryptoSettings, RootSettings, SystemSettings, AppSettings
+    use Cimply\Interfaces\Support\Enum\{
+        PatternSettings,
+        CryptoSettings,
+        RootSettings,
+        SystemSettings,
+        AppSettings
     };
-    use \Cimply\Interfaces\IProperty;
+    use Cimply\Interfaces\IProperty;
 
     class View implements IProperty
     {
         use \Properties, \Cast, \Files;
 
-        private static $vars = [], $ttl = 1, $view = "";
-        protected $scope;
+        private static array $vars = [];
+        private static int $ttl = 1;
+        private static string $view = "";
 
-        public static $mimeType = 'x-conference/x-cooltalk', $externalFile = true;
+        protected ?Scope $scope = null;
 
-        function __construct(Scope $scope = null)
+        public static string $mimeType = 'x-conference/x-cooltalk';
+        public static bool $externalFile = true;
+
+        public function __construct(?Scope $scope = null)
         {
             $this->scope = $scope;
         }
 
-        final static function Cast($mainObject, $selfObject = self::class) : self
+        final public static function Cast($mainObject, $selfObject = self::class): self
         {
             return self::Cull($mainObject, $selfObject);
         }
 
-        function OnPropertyChanged()
+        public function OnPropertyChanged(): void
         {
             self::$staticProperties = $this;
         }
 
-        static function GetTemplateArgs($tpl = null) : ? array
+        public static function GetTemplateArgs($tpl = null): ?array
         {
             $result = null;
             $path = [];
+
             if ($modul = self::GetModules($tpl)) {
                 foreach ($modul as $key => $value) {
-                    $path = \is_string($key) ? ['file' => $key, 'attr' => $value] : ['file' => $value];
+                    $path = \is_string($key)
+                        ? ['file' => $key, 'attr' => $value]
+                        : ['file' => $value];
                 }
+
+                if (!isset($path['file']) || !\is_string($path['file']) || $path['file'] === '') {
+                    return \array_merge(['filePath' => null], $path);
+                }
+
                 $fileInfo = new UriManager($path['file']);
                 $extension = $fileInfo->getFileType();
                 $basename = \str_replace('_', DIRECTORY_SEPARATOR, $fileInfo->getFileBasename());
                 $baseFile = self::GetStaticProperty(AppSettings::ASSETS) . DIRECTORY_SEPARATOR . $extension . DIRECTORY_SEPARATOR . $basename;
-                $result = \is_file($baseFile) && (self::GetStaticProperty(AppSettings::CLIENTFILESALLOW) == true) 
-                ? $baseFile
-                : self::GetStaticProperty(AppSettings::PROJECTPATH) . DIRECTORY_SEPARATOR . $baseFile;
+
+                $result = (\is_file($baseFile) && (self::GetStaticProperty(AppSettings::CLIENTFILESALLOW) == true))
+                    ? $baseFile
+                    : self::GetStaticProperty(AppSettings::PROJECTPATH) . DIRECTORY_SEPARATOR . $baseFile;
+
                 self::$externalFile = false;
             }
+
             return \array_merge(['filePath' => $result], $path);
         }
 
-        //Set Parameters
-        public function setTemplateParams($params)
+        private static function normalizeToString($value): string
         {
+            if ($value === null) {
+                return '';
+            }
+            if (\is_string($value) || \is_int($value) || \is_float($value) || \is_bool($value)) {
+                return (string)$value;
+            }
+            if (\is_object($value) && \method_exists($value, '__toString')) {
+                return (string)$value;
+            }
+            if (\is_array($value)) {
+                $json = \json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                return $json !== false ? $json : '';
+            }
+            $json = \json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return $json !== false ? $json : '';
+        }
+
+        // Set Parameters
+        public function setTemplateParams($params): array
+        {
+            $msg = [];
+
+            if (!\is_array($params)) {
+                return $msg;
+            }
+
             foreach ($params as $key => $val) {
-                if (is_array($val)) {
+                if (\is_array($val)) {
                     foreach ($val as $k => $v) {
                         $msg[$key][$k] = $v;
                     }
@@ -71,181 +116,284 @@ namespace Cimply\Core\View {
                     $msg[$key] = $val;
                 }
             }
+
             return $msg;
         }
 
-        //Get Parameter
-        static function GetVar($s, $key = '')
+        // Get Parameter
+        public static function GetVar(string $s, string $key = '')
         {
-            return static::$vars[$key . $s] ?? null;
+            return self::$vars[$key . $s] ?? null;
         }
 
-        //Set Value
-        static function SetVar($key = null, $value = '')
+        // Set Value
+        public static function SetVar(?string $key = null, $value = null): void
         {
-            isset($key) ? self::$vars[$key] = $value : null;
+            if ($key !== null) {
+                self::$vars[$key] = $value;
+            }
         }
 
-        //Set Parameters
-        static function SetVars($params = null, $key = '')
+        // Set Parameters
+        public static function SetVars($params = null, string $key = ''): void
         {
-            if (is_array($params)) {
-                foreach ($params as $k => $v) {
-                    !empty($v) ? self::$vars[$key . $k] = $v : null;
+            if (!\is_array($params)) {
+                return;
+            }
+
+            foreach ($params as $k => $v) {
+                if ($v !== null && $v !== '' && $v !== []) {
+                    self::$vars[$key . $k] = $v;
                 }
             }
         }
 
-        //Get Parameters
-        static function GetVars(): ?array
+        // Get Parameters
+        public static function GetVars(): ?array
         {
-            return self::$vars ?? null;
+            return self::$vars;
         }
 
-        function isExternalFile() : bool
+        public function isExternalFile(): bool
         {
-            return $this->externalFile;
+            return self::$externalFile;
         }
 
-        static function GetPattern(string $key) : ? string
+        public static function GetPattern(string $key): ?string
         {
             return PatternSettings::isValidValue($key) ? self::GetStaticProperty($key) : null;
         }
 
         /**
-         *
          * Create
-         *
          */
-        public static function Create($template = null) : ? string
+        public static function Create($template = null): ?string
         {
             $tplArgs = self::GetTemplateArgs($template);
-            $filePath = $tplArgs['filePath'];
-            if (is_file($filePath)) {
-                self::$mimeType = \Mime::GetMime($tplArgs['file']);
+            $filePath = $tplArgs['filePath'] ?? null;
+
+            if (\is_string($filePath) && $filePath !== '' && \is_file($filePath)) {
+                self::$mimeType = \Mime::GetMime($tplArgs['file'] ?? '');
                 $cacheFile = self::GetStaticProperty(AppSettings::CACHEDIR) . DIRECTORY_SEPARATOR . 'tmp_' . md5($filePath);
-                $iFiletime = self::HasFileCached($cacheFile) ? \filemtime($cacheFile) : 0;
-                $template = ($iFiletime > (\time() - (10 * self::$ttl))) ? self::GetFileContent($cacheFile) : self::$staticProperties->cacheFile($filePath, $cacheFile);
-                isset($tplArgs['attr']) ? $template = Dom::SetAttrFromArray($template, $tplArgs['attr']) : null;
+
+                $iFiletime = self::HasFileCached($cacheFile) ? (int)\filemtime($cacheFile) : 0;
+                $template = ($iFiletime > (\time() - (10 * self::$ttl)))
+                    ? self::GetFileContent($cacheFile)
+                    : self::$staticProperties->cacheFile($filePath, $cacheFile);
+
+                if (isset($tplArgs['attr'])) {
+                    $template = Dom::SetAttrFromArray($template, $tplArgs['attr']);
+                }
             }
+
             return $template ?? null;
         }
 
         /**
-         *
          * Render View
-         *
          */
         public static function Render($template = null, $passthru = false, $encode = null): void
         {
-            if (!headers_sent() && isset(self::$mimeType)) {
-                header('Content-type:' . self::$mimeType);
+            if (!\headers_sent() && isset(self::$mimeType) && \is_string(self::$mimeType)) {
+                \header('Content-type: ' . self::$mimeType);
             }
-            $template = is_array($template) ? self::EncodeBeforeRendering($template) : self::ParseTplVars($template);
+
+            if (\is_array($template)) {
+                $template = self::EncodeBeforeRendering($template);
+            } else {
+                $template = self::ParseTplVars($template);
+            }
+
             self::Show($template ?? self::$view, $passthru, $encode);
         }
 
         /**
-         *Convert ViewParsing
-         * @param [type] $template
-         * @return String
+         * Convert ViewParsing
          */
-        static function EncodeBeforeRendering($template = []): String
+        public static function EncodeBeforeRendering(array $template = []): string
         {
-            $template[key($template)] = self::ParseTplVars($template[key($template)]);
+            $k = \array_key_first($template);
+            if ($k === null) {
+                return \JsonDeEncoder::Encode($template);
+            }
+
+            $template[$k] = self::ParseTplVars($template[$k]);
             return \JsonDeEncoder::Encode($template);
         }
 
-        static function Show($body = "", $loopThrough = false, $secure = null, $mime = null) : string
+        public static function Show($body = "", $loopThrough = false, $secure = null, $mime = null): string
         {
             $scope = Scope::Cast(self::GetStaticProperty('scope'));
             $fileType = $scope->getType();
             $mimeType = \Mime::GetMime('.' . $fileType, true) ?? self::$mimeType;
-            $caching = !$scope->getCaching() ? $scope->getCaching() : !\in_array($fileType, self::GetStaticProperty(SystemSettings::USENOTCACHINGFOR));
+
+            $caching = !$scope->getCaching()
+                ? $scope->getCaching()
+                : !\in_array($fileType, (array)self::GetStaticProperty(SystemSettings::USENOTCACHINGFOR), true);
 
             $toTranslation = self::GetStaticProperty(SystemSettings::USENOTTRANSLATIONFOR);
-            !((isset($toTranslation)) && in_array($scope->getType(), $toTranslation)) || (empty($toTranslation)) ? $body = Translate::GetTranslastion($body) : null;
-            $body = View::ParseTplVars($body);
-            ($secure === 1 || $secure === true) ? $body = (function($body) use($scope, $fileType, $mimeType, $caching) {
-                $salt = self::GetStaticProperty(CryptoSettings::SALT);
-                $pepper = md5(time().self::GetStaticProperty(CryptoSettings::PEPPER));
-                return \JsonDeEncoder::Encode(["Scope" => $scope, "fileTyp" => $fileType, "mimeTyp" => $mimeType, 'hash' => $pepper, "caching" => $caching, "data" => (\Crypto::Encrypt($body, $salt, $pepper))]);
-            })($body) : null;
- 
-            $mime ? header("Content-Type: {$mime}") : $mime;
-            $output = $body;
-            if (!($loopThrough)) {
+            $toTranslationArr = \is_array($toTranslation) ? $toTranslation : [];
+
+            if (empty($toTranslationArr) || !\in_array($scope->getType(), $toTranslationArr, true)) {
+                $body = Translate::GetTranslastion($body);
+            }
+
+            $body = self::ParseTplVars($body);
+
+            if ($secure === 1 || $secure === true) {
+                $body = (function ($body) use ($scope, $fileType, $mimeType, $caching) {
+                    $salt = self::GetStaticProperty(CryptoSettings::SALT);
+                    $pepper = md5(\time() . self::GetStaticProperty(CryptoSettings::PEPPER));
+
+                    return \JsonDeEncoder::Encode([
+                        "Scope"   => $scope,
+                        "fileTyp" => $fileType,
+                        "mimeTyp" => $mimeType,
+                        "hash"    => $pepper,
+                        "caching" => $caching,
+                        "data"    => (\Crypto::Encrypt($body, $salt, $pepper))
+                    ]);
+                })($body);
+            }
+
+            if ($mime) {
+                \header("Content-Type: {$mime}");
+            }
+
+            $output = self::normalizeToString($body);
+
+            if (!$loopThrough) {
                 die($output);
             }
+
             return $output;
         }
 
-        public static function ParseTplVars($template = null, $vars = null) : ?string
+        public static function ParseTplVars($template = null, $vars = null): ?string
         {
-            if($template !== null) {
-                @preg_match_all(self::GetStaticProperty(PatternSettings::PARAM), $template, $matches);
-                if (isset($matches[1]) && count($matches[1]) > 0) {
-                    foreach ($matches[1] as $key => $value) {
-                        if (array_key_exists($value, (is_array($vars) ? $vars : self::$vars) ?? self::$vars)) {
-                            $template = str_replace($matches[0][$key], Translate::WordTranslation($vars[$value] ?? self::$vars[$value]) ?? null, $template);
-                        }
-                    }
-                }
+            if ($template === null) {
+                return null;
             }
+
+            $template = self::normalizeToString($template);
+            $pattern = self::GetStaticProperty(PatternSettings::PARAM);
+
+            if (!\is_string($pattern) || $pattern === '') {
+                return $template;
+            }
+
+            $matches = [];
+            \preg_match_all($pattern, $template, $matches);
+
+            if (!isset($matches[1]) || \count($matches[1]) === 0) {
+                return $template;
+            }
+
+            $sourceVars = \is_array($vars) ? $vars : self::$vars;
+
+            foreach ($matches[1] as $idx => $name) {
+                if (!\is_string($name) || $name === '') {
+                    continue;
+                }
+
+                if (\array_key_exists($name, $sourceVars)) {
+                    $raw = $sourceVars[$name];
+                } elseif (\array_key_exists($name, self::$vars)) {
+                    $raw = self::$vars[$name];
+                } else {
+                    continue;
+                }
+
+                $replacement = Translate::WordTranslation(self::normalizeToString($raw)) ?? '';
+                $template = \str_replace($matches[0][$idx], $replacement, $template);
+            }
+
             return $template;
         }
 
-        public static function ParseTplView($template = null) : string
+        public static function ParseTplView($template = null): string
         {
-            if($template !== null) {
-                @preg_match_all(self::GetStaticProperty(PatternSettings::MODUL), $template, $matches);
-                if (isset($matches[1]) && count($matches[1]) > 0) {
-                    //$explAttr = explode(':', $matches[1][0]);
-                    foreach ($matches[1] as $key => $value) {
-                        $template = str_replace($matches[0][$key], self::Create($matches[0][$key]) ?? null, $template);
-                    }
+            if ($template === null) {
+                return '';
+            }
+
+            $template = self::normalizeToString($template);
+            $pattern = self::GetStaticProperty(PatternSettings::MODUL);
+
+            if (!\is_string($pattern) || $pattern === '') {
+                return $template;
+            }
+
+            $matches = [];
+            \preg_match_all($pattern, $template, $matches);
+
+            if (isset($matches[1]) && \count($matches[1]) > 0) {
+                foreach ($matches[1] as $key => $value) {
+                    $template = \str_replace($matches[0][$key], self::Create($matches[0][$key]) ?? '', $template);
                 }
             }
+
             return $template;
         }
 
-        public static function ParseTplAttr($element = null) : ? array
+        public static function ParseTplAttr($element = null): ?array
         {
-            $result = null;
-            if($element !== null) {
-                @preg_match_all(self::GetStaticProperty(PatternSettings::ATTR), $element, $matches);
-                $result = $matches[0];
-                if (($matches['name'][0] !== '') && count($matches[1]) > 0) {
-                    $explAttr = explode(',', $matches['value'][0]);
-                    $remove = array("\"", "'");
-                    foreach ($explAttr as $key => $value) {
-                        $v = explode('=', \ltrim($value));
-                        $result[$matches['name'][0]][$v[0]] = str_replace($remove, '', $v[1]);
+            if ($element === null) {
+                return null;
+            }
+
+            $pattern = self::GetStaticProperty(PatternSettings::ATTR);
+            if (!\is_string($pattern) || $pattern === '') {
+                return null;
+            }
+
+            $matches = [];
+            \preg_match_all($pattern, self::normalizeToString($element), $matches);
+
+            $result = $matches[0] ?? null;
+
+            if (isset($matches['name'][0]) && $matches['name'][0] !== '' && isset($matches['value'][0]) && \count($matches[1] ?? []) > 0) {
+                $explAttr = \explode(',', $matches['value'][0]);
+                $remove = ["\"", "'"];
+
+                foreach ($explAttr as $value) {
+                    $v = \explode('=', \ltrim($value), 2);
+                    if (!isset($v[0], $v[1])) {
+                        continue;
                     }
+                    $result[$matches['name'][0]][$v[0]] = \str_replace($remove, '', $v[1]);
                 }
             }
+
             return $result;
         }
 
-        public static function GetModules($s) : ? array
+        public static function GetModules($s): ?array
         {
-            $result = null;
-            if (!self::GetPattern(PatternSettings::MODUL))
+            if (!self::GetPattern(PatternSettings::MODUL)) {
                 throw new \Exception("Modul-Pattern " . PatternSettings::MODUL . " not found.");
-
-            preg_match_all(self::GetPattern(PatternSettings::MODUL), (string)$s, $matches);
-            if ($matches[1]) {
-                $result = self::ParseTplAttr($matches[1][0]);
             }
-            return $result;
+
+            $matches = [];
+            \preg_match_all(self::GetPattern(PatternSettings::MODUL), self::normalizeToString($s), $matches);
+
+            if (!empty($matches[1])) {
+                return self::ParseTplAttr($matches[1][0]);
+            }
+
+            return null;
         }
 
-        //Set Parameters
-        public static function Assign($value) : void
+        // Set Parameters
+        public static function Assign($value): void
         {
+            if (!\is_array($value)) {
+                return;
+            }
+
             $vars = [];
             foreach ($value as $key => $val) {
-                if (is_array($val)) {
+                if (\is_array($val)) {
                     foreach ($val as $k => $v) {
                         $vars[$key][$k] = $v;
                     }
@@ -253,7 +401,8 @@ namespace Cimply\Core\View {
                     $vars[$key] = $val;
                 }
             }
-            self::$vars = array_merge(self::$vars, $vars);
+
+            self::$vars = \array_merge(self::$vars, $vars);
         }
     }
 }
