@@ -5,26 +5,26 @@
 */
 
 namespace {
-
     use Cimply\Core\Annotation\Annotation as Annotate;
 
-    trait Annotation
-    {
+    trait Annotation {
+
         public static function GetAnnotations($classObject = null): Annotate
         {
             $classObject = $classObject !== null ? (string)$classObject : '';
 
-            $objectExpl = \explode('::', $classObject);
+            $objectExpl = \explode("::", $classObject);
             $className = $objectExpl[0] ?? null;
             $method = $objectExpl[1] ?? null;
 
             try {
-                return new Annotate($className, $method);
-            } catch (\Throwable $e) {
+                $annotate = new Annotate($className, $method);
+            } catch (\Exception | \ReflectionException | \AnnotateException | \ArgumentCountError $e) {
                 \Debug::VarDump($e->getMessage());
-                return new Annotate(null, null);
+                $annotate = new Annotate(null, null);
             }
+
+            return $annotate;
         }
     }
-
 }
