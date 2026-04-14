@@ -1,0 +1,5 @@
+#Region: Routings
+index:
+    type:       'html'
+    action:     '\App\MainCtrl::Init'
+#EndRegion Routings
